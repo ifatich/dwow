@@ -154,7 +154,13 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
             <h2 className="text-[18px] font-[540] leading-[1.35] tracking-[-0.26px] text-ink mb-md">
               Papan Subtask
             </h2>
-            <SubtaskKanban subtasks={subtasks} onSubtasksChange={setSubtasks} currentUser={currentUser?.username} userRole={currentUser?.role} taskLead={task.lead} />
+            <SubtaskKanban
+              subtasks={subtasks}
+              onSubtasksChange={setSubtasks}
+              currentUser={currentUser?.username}
+              userRole={currentUser?.role}
+              taskLead={task.lead}
+            />
           </div>
         </div>
       </main>

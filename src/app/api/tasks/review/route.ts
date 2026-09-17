@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         picName: t.picName,
         lead: leadUser.username,
         project: t.projectId || "",
+        projectId: t.projectId || "",
         deadline: t.deadline || "",
         subtasks: taskSubtasks,
         reviewSubtasks,

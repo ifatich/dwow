@@ -1,7 +1,7 @@
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { subtasks, subtaskAssignees, activityLogs, timeContributions, users } from "@/db/schema";
-import type { Subtask, SubtaskStatus, ActivityLogEntry, StaffTimeContribution } from "@/lib/types";
+import { subtasks, subtaskAssignees, activityLogs, timeContributions, users, staffAssignmentHistory } from "@/db/schema";
+import type { Subtask, SubtaskStatus, ActivityLogEntry, StaffTimeContribution, StaffAssignmentHistoryLog } from "@/lib/types";
 
 /**
  * Batch fetch subtasks for multiple task IDs in 4 total queries (eliminates N+1).
@@ -23,7 +23,8 @@ export async function getSubtasksForTasks(taskIds: string[]): Promise<Map<string
     .select({ subtaskId: subtaskAssignees.subtaskId, username: users.username })
     .from(subtaskAssignees)
     .innerJoin(users, eq(subtaskAssignees.staffId, users.id))
-    .where(inArray(subtaskAssignees.subtaskId, subIds));
+    .where(inArray(subtaskAssignees.subtaskId, subIds))
+    .orderBy(asc(subtaskAssignees.id));
 
   const assigneesBySub = new Map<string, string[]>();
   for (const r of assigneeRows) {
@@ -120,7 +121,8 @@ export async function getSubtasksByTaskId(taskId: string): Promise<Subtask[]> {
       .select({ username: users.username })
       .from(subtaskAssignees)
       .innerJoin(users, eq(subtaskAssignees.staffId, users.id))
-      .where(eq(subtaskAssignees.subtaskId, sub.id));
+      .where(eq(subtaskAssignees.subtaskId, sub.id))
+      .orderBy(asc(subtaskAssignees.id));
 
     const assignees = assigneeRows.map((r) => r.username);
 
@@ -177,7 +179,8 @@ export async function getSubtaskById(subtaskId: string): Promise<Subtask | null>
     .select({ username: users.username })
     .from(subtaskAssignees)
     .innerJoin(users, eq(subtaskAssignees.staffId, users.id))
-    .where(eq(subtaskAssignees.subtaskId, sub.id));
+    .where(eq(subtaskAssignees.subtaskId, sub.id))
+    .orderBy(asc(subtaskAssignees.id));
 
   return mapSubtask(
     sub,
@@ -379,3 +382,119 @@ function mapSubtask(
     })),
   };
 }
+
+function parseAssigneeList(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => {
+        if (!item) return "";
+        if (typeof item === "string") return item;
+        if (typeof item === "object") {
+          const rec = item as Record<string, unknown>;
+          if (typeof rec.name === "string" && rec.name.trim()) return rec.name;
+          if (typeof rec.id === "string" && rec.id.trim()) return rec.id;
+        }
+        return String(item);
+      })
+      .filter((s) => s.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch assignment history logs for a specific subtask.
+ */
+export async function getAssignmentHistoryForSubtask(subtaskId: string): Promise<StaffAssignmentHistoryLog[]> {
+  const rows = await db
+    .select()
+    .from(staffAssignmentHistory)
+    .where(eq(staffAssignmentHistory.subtaskId, subtaskId))
+    .orderBy(desc(staffAssignmentHistory.createdAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    subtaskId: r.subtaskId,
+    previousAssignees: parseAssigneeList(r.previousAssignees),
+    newAssignees: parseAssigneeList(r.newAssignees),
+    changedBy: r.changedBy,
+    changeType: r.changeType as StaffAssignmentHistoryLog["changeType"],
+    reason: r.reason ?? undefined,
+    createdAt: r.createdAt,
+  }));
+}
+
+/**
+ * Record a new assignment change in staffAssignmentHistory and update subtaskAssignees.
+ */
+export async function recordAssignmentHistory(data: {
+  subtaskId: string;
+  previousAssignees: string[];
+  newAssignees: string[];
+  changedBy: string;
+  changeType: "added" | "removed" | "reassigned";
+  reason?: string;
+}): Promise<StaffAssignmentHistoryLog> {
+  const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+
+  await db.insert(staffAssignmentHistory).values({
+    id,
+    subtaskId: data.subtaskId,
+    previousAssignees: JSON.stringify(data.previousAssignees),
+    newAssignees: JSON.stringify(data.newAssignees),
+    changedBy: data.changedBy,
+    changeType: data.changeType,
+    reason: data.reason || null,
+    createdAt,
+  }).run();
+
+  // Sinkronkan penugasan baru ke tabel subtaskAssignees
+  if (data.newAssignees && data.newAssignees.length > 0) {
+    const allUsers = await db
+      .select({ id: users.id, username: users.username, nama: users.nama })
+      .from(users);
+
+    const matchedUserIds: string[] = [];
+    for (const a of data.newAssignees) {
+      if (!a) continue;
+      const norm = a.toLowerCase().trim();
+      const u = allUsers.find(
+        (x) =>
+          x.username.toLowerCase() === norm ||
+          x.nama.toLowerCase() === norm ||
+          x.id.toLowerCase() === norm
+      );
+      if (u && !matchedUserIds.includes(u.id)) {
+        matchedUserIds.push(u.id);
+      }
+    }
+
+    if (matchedUserIds.length > 0) {
+      await db.delete(subtaskAssignees).where(eq(subtaskAssignees.subtaskId, data.subtaskId)).run();
+
+      for (const staffId of matchedUserIds) {
+        await db.insert(subtaskAssignees).values({
+          subtaskId: data.subtaskId,
+          staffId,
+          assignedAt: createdAt,
+        }).run();
+      }
+    }
+  }
+
+  return {
+    id,
+    subtaskId: data.subtaskId,
+    previousAssignees: data.previousAssignees,
+    newAssignees: data.newAssignees,
+    changedBy: data.changedBy,
+    changeType: data.changeType,
+    reason: data.reason,
+    createdAt,
+  };
+}
+

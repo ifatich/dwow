@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -22,6 +22,7 @@ import ActivityLog from "./activity-log";
 import MetadataSection from "@/features/task/components/metadata-section";
 import EvidenceDialog from "@/features/task/components/evidence-dialog";
 import SubtaskDetailModal from "@/features/task/components/subtask-detail-modal";
+import StaffAssignmentHistoryDialog from "@/features/task/components/staff-assignment-history-dialog";
 import { useTimerCountdown } from "@/features/task/hooks/use-timer-countdown";
 import { notifyRealtimeSync } from "@/lib/realtime-sync";
 
@@ -54,7 +55,27 @@ const ICON_SVG: Record<string, string> = {
   refresh: "M14 8a6 6 0 01-6 6 6 6 0 01-6-6 6 6 0 016-6v2M14 8h-4M14 8V4",
 };
 
-function SubtaskCardView({ subtask, isDragging, onAction, onOpenDetail, pending, showLeadActions, currentUser }: { subtask: Subtask; isDragging?: boolean; onAction?: (subtaskId: string, newStatus: SubtaskStatus) => void; onOpenDetail?: (subtask: Subtask) => void; pending?: boolean; showLeadActions?: boolean; currentUser?: string }) {
+interface SubtaskCardViewProps {
+  subtask: Subtask;
+  onAction?: (subtaskId: string, newStatus: SubtaskStatus) => void;
+  onOpenDetail?: (subtask: Subtask) => void;
+  onOpenHistory?: (subtask: Subtask) => void;
+  pending?: boolean;
+  isDragging?: boolean;
+  showLeadActions?: boolean;
+  currentUser?: string;
+}
+
+function SubtaskCardView({
+  subtask,
+  onAction,
+  onOpenDetail,
+  onOpenHistory,
+  pending,
+  isDragging,
+  showLeadActions,
+  currentUser,
+}: SubtaskCardViewProps) {
   const isDone = subtask.status === "done";
   const isReview = subtask.status === "review";
   const isInProgress = subtask.status === "in_progress";
@@ -64,6 +85,12 @@ function SubtaskCardView({ subtask, isDragging, onAction, onOpenDetail, pending,
     : !isAssigned ? []
       : subtask.status === "review" ? []
         : actions;
+
+  // Cek apakah subtask ditugaskan ke user yang sedang login
+  const normalizedUser = currentUser?.trim().toLowerCase();
+  const isMySubtask = normalizedUser
+    ? subtask.assignees.some((a) => a.toLowerCase() === normalizedUser)
+    : false;
 
   const assigneeSet = new Set(subtask.assignees.map((a) => a.toLowerCase()));
   const validTimeContribs = subtask.timeContributions.filter((tc) => assigneeSet.has(tc.staffName.toLowerCase()));
@@ -76,20 +103,52 @@ function SubtaskCardView({ subtask, isDragging, onAction, onOpenDetail, pending,
   const cleanedSubtask = { ...subtask, timeContributions: validTimeContribs };
 
   return (
-    <div className={`bg-canvas border rounded-md overflow-hidden transition-all ${isDragging ? "shadow-lg border-ink/20" : isDone ? "border-green-200/60" : isReview ? "border-amber-200/60" : "border-hairline hover:border-ink/20 hover:shadow-sm"}`}>
+    <div
+      className={`rounded-md overflow-hidden transition-all duration-200 ${isDragging
+        ? "bg-canvas shadow-lg border border-ink/20"
+        : isMySubtask
+          ? "bg-canvas border-2 border-lime-500"
+          : isDone
+            ? "bg-canvas border border-green-200/60"
+            : isReview
+              ? "bg-canvas border border-amber-200/60"
+              : "bg-canvas border border-hairline hover:border-ink/20 hover:shadow-sm"
+        }`}
+    >
       <div className="flex items-center gap-sm px-md py-sm">
         <div className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isDone ? "bg-semantic-success border-semantic-success" : isReview ? "border-amber-400 bg-amber-50" : "border-hairline"}`}>
           {isDone && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
           {isReview && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="1.5" fill="#f59e0b" /></svg>}
         </div>
-        <span className={`text-[14px] leading-[1.45] flex-1 truncate ${isDone ? "text-ink/40 line-through" : "text-ink/80"}`}>{subtask.title}</span>
+        <div className="flex items-center gap-xs flex-1 min-w-0">
+          <span className={`text-[14px] leading-[1.45] truncate ${isDone ? "text-ink/40 line-through" : "text-ink/80"}`}>{subtask.title}</span>
+        </div>
         {subtask.assignees.length > 0 && (
           <div className="flex -space-x-xxs flex-shrink-0">
-            {subtask.assignees.map((name) => (
-              <div key={name} className="w-[20px] h-[20px] rounded-full flex items-center justify-center border border-canvas" style={{ backgroundColor: STAFF_COLORS[name] || "#6b7280" }} title={name}>
-                <span className="text-[7px] font-[540] text-white leading-none">{name.slice(0, 2).toUpperCase()}</span>
-              </div>
-            ))}
+            {subtask.assignees.map((name, idx) => {
+              const isUser = normalizedUser && name.toLowerCase() === normalizedUser;
+              return (
+                <div
+                  key={name}
+                  className={`w-[20px] h-[20px] rounded-full flex items-center justify-center border border-canvas transition-all ${isUser
+                    ? "ring-1 ring-primary/50 font-bold z-20"
+                    : idx === 0 && subtask.assignees.length > 1
+                      ? "ring-1 ring-primary/40 z-10"
+                      : ""
+                    }`}
+                  style={{ backgroundColor: STAFF_COLORS[name] || "#6b7280" }}
+                  title={
+                    subtask.assignees.length === 1
+                      ? `${name} (Assignee)`
+                      : idx === 0
+                        ? `${name} (Owner)`
+                        : `${name} (Co-assignee)`
+                  }
+                >
+                  <span className="text-[7px] font-[540] text-white leading-none">{name.slice(0, 2).toUpperCase()}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -99,8 +158,8 @@ function SubtaskCardView({ subtask, isDragging, onAction, onOpenDetail, pending,
       {isInProgress && subtask.workloadHours > 0 && (
         <div className="px-md pb-xs">
           <div className={`flex items-center gap-xs rounded-md px-sm py-xxs text-[10px] font-[480] ${timer.isOverdue
-              ? "bg-red-50 text-red-600 border border-red-200"
-              : "bg-blue-50 text-blue-600 border border-blue-100"
+            ? "bg-red-50 text-red-600 border border-red-200"
+            : "bg-blue-50 text-blue-600 border border-blue-100"
             }`}>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={timer.isOverdue ? "animate-pulse" : ""}>
               <circle cx="5" cy="5" r="4" stroke="currentColor" strokeWidth="1" />
@@ -134,7 +193,7 @@ function SubtaskCardView({ subtask, isDragging, onAction, onOpenDetail, pending,
                 if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!pending) onAction?.(subtask.id, a.to); }
               }}
               className={`inline-flex items-center gap-xxs rounded-pill px-sm py-xxs text-[10px] font-[480] transition-colors select-none ${pending ? "opacity-50 cursor-wait"
-                  : "cursor-pointer"
+                : "cursor-pointer"
                 } ${a.variant === "green" ? "bg-green-100 text-green-700 hover:bg-green-200"
                   : a.variant === "red" ? "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
                     : a.variant === "amber" ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
@@ -155,27 +214,58 @@ function SubtaskCardView({ subtask, isDragging, onAction, onOpenDetail, pending,
           ))}
         </div>
 
-        {/* Trigger detail modal */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenDetail?.(subtask);
-          }}
-          className="ml-auto inline-flex items-center gap-xxs rounded-pill px-sm py-xxs text-[10px] font-[480] bg-surface-soft text-ink/60 hover:bg-hairline hover:text-ink transition-colors cursor-pointer border border-hairline-soft"
-        >
-          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="opacity-70">
-            <path d="M1 6s2.5-4 5-4 5 4 5 4-2.5 4-5 4-5-4-5-4z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="6" cy="6" r="1.5" stroke="currentColor" strokeWidth="1.2" />
-          </svg>
-          Detail
-        </button>
+        <div className="ml-auto flex items-center gap-xs">
+          {/* Trigger staff assignment history modal */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenHistory?.(subtask);
+            }}
+            className="inline-flex items-center gap-xxs rounded-pill px-xs py-xxs text-[10px] font-[480] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer border border-indigo-200"
+            title="Lihat Histori Penugasan Staf"
+          >
+            Histori Tim
+          </button>
+
+          {/* Trigger detail modal */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetail?.(subtask);
+            }}
+            className="inline-flex items-center gap-xxs rounded-pill px-sm py-xxs text-[10px] font-[480] bg-surface-soft text-ink/60 hover:bg-hairline hover:text-ink transition-colors cursor-pointer border border-hairline-soft"
+          >
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="opacity-70">
+              <path d="M1 6s2.5-4 5-4 5 4 5 4-2.5 4-5 4-5-4-5-4z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="6" cy="6" r="1.5" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+            Detail
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function DraggableSubtask({ subtask, onAction, onOpenDetail, pending, currentUser, showLeadActions }: { subtask: Subtask; onAction?: (subtaskId: string, newStatus: SubtaskStatus) => void; onOpenDetail?: (subtask: Subtask) => void; pending?: boolean; currentUser?: string; showLeadActions?: boolean }) {
+function DraggableSubtask({
+  subtask,
+  onAction,
+  onOpenDetail,
+  onOpenHistory,
+  pending,
+  currentUser,
+  showLeadActions,
+}: {
+  subtask: Subtask;
+  onAction?: (subtaskId: string, newStatus: SubtaskStatus) => void;
+  onOpenDetail?: (subtask: Subtask) => void;
+  onOpenHistory?: (subtask: Subtask) => void;
+  pending?: boolean;
+  currentUser?: string;
+  showLeadActions?: boolean;
+}) {
   const isAssigned = !!currentUser && subtask.assignees.some((a) => a.toLowerCase() === currentUser.toLowerCase());
   const canDrag = isAssigned || showLeadActions;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -186,12 +276,42 @@ function DraggableSubtask({ subtask, onAction, onOpenDetail, pending, currentUse
   const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: isDragging ? 50 : undefined } : undefined;
   return (
     <div ref={setNodeRef} style={style} {...(canDrag ? listeners : {})} {...(canDrag ? attributes : {})} suppressHydrationWarning className={`${canDrag ? "touch-none cursor-grab active:cursor-grabbing" : "cursor-default"} ${isDragging ? "opacity-40" : ""}`}>
-      <SubtaskCardView subtask={subtask} onAction={onAction} onOpenDetail={onOpenDetail} pending={pending} showLeadActions={showLeadActions} currentUser={currentUser} />
+      <SubtaskCardView
+        subtask={subtask}
+        onAction={onAction}
+        onOpenDetail={onOpenDetail}
+        onOpenHistory={onOpenHistory}
+        pending={pending}
+        showLeadActions={showLeadActions}
+        currentUser={currentUser}
+      />
     </div>
   );
 }
 
-function DroppableColumn({ columnId, label, accent, subtasks, onAction, onOpenDetail, pendingIds, currentUser, showLeadActions }: { columnId: string; label: string; accent: string; subtasks: Subtask[]; onAction?: (subtaskId: string, newStatus: SubtaskStatus) => void; onOpenDetail?: (subtask: Subtask) => void; pendingIds?: Set<string>; currentUser?: string; showLeadActions?: boolean }) {
+function DroppableColumn({
+  columnId,
+  label,
+  accent,
+  subtasks,
+  onAction,
+  onOpenDetail,
+  onOpenHistory,
+  pendingIds,
+  currentUser,
+  showLeadActions,
+}: {
+  columnId: string;
+  label: string;
+  accent: string;
+  subtasks: Subtask[];
+  onAction?: (subtaskId: string, newStatus: SubtaskStatus) => void;
+  onOpenDetail?: (subtask: Subtask) => void;
+  onOpenHistory?: (subtask: Subtask) => void;
+  pendingIds?: Set<string>;
+  currentUser?: string;
+  showLeadActions?: boolean;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId });
   return (
     <div className="flex flex-col flex-1 min-w-[240px]">
@@ -203,7 +323,18 @@ function DroppableColumn({ columnId, label, accent, subtasks, onAction, onOpenDe
         </div>
       </div>
       <div ref={setNodeRef} className={`flex-1 p-sm space-y-sm min-h-[300px] rounded-b-lg border border-t-0 border-hairline-soft transition-colors ${isOver ? "bg-surface-soft/60" : "bg-canvas/40"}`}>
-        {subtasks.map((sub) => <DraggableSubtask key={sub.id} subtask={sub} onAction={onAction} onOpenDetail={onOpenDetail} pending={pendingIds?.has(sub.id)} currentUser={currentUser} showLeadActions={showLeadActions} />)}
+        {subtasks.map((sub) => (
+          <DraggableSubtask
+            key={sub.id}
+            subtask={sub}
+            onAction={onAction}
+            onOpenDetail={onOpenDetail}
+            onOpenHistory={onOpenHistory}
+            pending={pendingIds?.has(sub.id)}
+            currentUser={currentUser}
+            showLeadActions={showLeadActions}
+          />
+        ))}
       </div>
     </div>
   );
@@ -234,13 +365,51 @@ interface SubtaskKanbanProps {
   taskLead?: string;
 }
 
-export default function SubtaskKanban({ subtasks, onSubtasksChange, currentUser, userRole, taskLead }: SubtaskKanbanProps) {
+export default function SubtaskKanban({
+  subtasks,
+  onSubtasksChange,
+  currentUser,
+  userRole,
+  taskLead,
+}: SubtaskKanbanProps) {
   const [activeSubtask, setActiveSubtask] = useState<Subtask | null>(null);
   const [evidenceTarget, setEvidenceTarget] = useState<{ subtask: Subtask; targetColumn: SubtaskStatus } | null>(null);
   const [detailSubtask, setDetailSubtask] = useState<Subtask | null>(null);
+  const [historySubtask, setHistorySubtask] = useState<Subtask | null>(null);
   const [timerPending, setTimerPending] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleReassignStaff = async (newAssignees: string[], reason: string) => {
+    if (!historySubtask) return;
+    const previousAssignees = historySubtask.assignees;
+
+    try {
+      await fetch(`/api/subtasks/${historySubtask.id}/assignment-history`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          previousAssignees,
+          newAssignees,
+          changedBy: currentUser || "Lead",
+          changeType: "reassigned",
+          reason,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to record assignment history", err);
+    }
+
+    const updatedSubtasks = subtasks.map((s) => {
+      if (s.id === historySubtask.id) {
+        return { ...s, assignees: newAssignees };
+      }
+      return s;
+    });
+    onSubtasksChange(updatedSubtasks);
+    setHistorySubtask({ ...historySubtask, assignees: newAssignees });
+    showToast("✅ Berhasil memperbarui penugasan staf!");
+  };
 
   const [filters, setFilters] = useState<{ search: string; assignee: string }>({
     search: "",
@@ -494,6 +663,16 @@ export default function SubtaskKanban({ subtasks, onSubtasksChange, currentUser,
             ))}
           </select>
         )}
+
+        {(filters.search || filters.assignee) && (
+          <button
+            type="button"
+            onClick={() => setFilters({ search: "", assignee: "" })}
+            className="h-[32px] rounded-pill px-sm text-[12px] font-[480] text-ink/40 hover:text-ink/60 hover:bg-surface-soft transition-colors"
+          >
+            Reset Filter
+          </button>
+        )}
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveSubtask(null)}>
@@ -512,11 +691,31 @@ export default function SubtaskKanban({ subtasks, onSubtasksChange, currentUser,
 
         <div className="flex gap-lg items-start">
           {SUBTASK_COLUMNS.map((col) => (
-            <DroppableColumn key={col.id} columnId={col.id} label={col.label} accent={col.accent} subtasks={getByStatus(col.id)} onAction={handleSubtaskAction} onOpenDetail={(s) => setDetailSubtask(s)} pendingIds={timerPending} currentUser={currentUser} showLeadActions={showLeadActions} />
+            <DroppableColumn
+              key={col.id}
+              columnId={col.id}
+              label={col.label}
+              accent={col.accent}
+              subtasks={getByStatus(col.id)}
+              onAction={handleSubtaskAction}
+              onOpenDetail={(s) => setDetailSubtask(s)}
+              onOpenHistory={(s) => setHistorySubtask(s)}
+              pendingIds={timerPending}
+              currentUser={currentUser}
+              showLeadActions={showLeadActions}
+            />
           ))}
         </div>
         <DragOverlay>
-          {activeSubtask ? <div className="opacity-90 scale-105 rotate-[1deg] w-[300px]"><SubtaskCardView subtask={activeSubtask} isDragging /></div> : null}
+          {activeSubtask ? (
+            <div className="opacity-90 scale-105 rotate-[1deg] w-[300px]">
+              <SubtaskCardView
+                subtask={activeSubtask}
+                isDragging
+                currentUser={currentUser}
+              />
+            </div>
+          ) : null}
         </DragOverlay>
 
         {/* Evidence dialog */}
@@ -533,6 +732,18 @@ export default function SubtaskKanban({ subtasks, onSubtasksChange, currentUser,
           open={!!detailSubtask}
           subtask={detailSubtask}
           onClose={() => setDetailSubtask(null)}
+        />
+
+        {/* Staff Assignment History Dialog */}
+        <StaffAssignmentHistoryDialog
+          open={!!historySubtask}
+          subtaskTitle={historySubtask?.title || ""}
+          subtaskId={historySubtask?.id || ""}
+          currentAssignees={historySubtask?.assignees || []}
+          assignmentHistory={historySubtask?.assignmentHistory}
+          taskLead={taskLead}
+          onClose={() => setHistorySubtask(null)}
+          onReassign={handleReassignStaff}
         />
       </DndContext>
     </div>

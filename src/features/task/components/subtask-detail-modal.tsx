@@ -48,9 +48,16 @@ export default function SubtaskDetailModal({ subtask, open, onClose }: SubtaskDe
             <h3 className="text-[20px] font-[540] leading-[1.3] text-ink">
               {subtask.title}
             </h3>
-            {subtask.assignees.length > 0 && (
+            {subtask.assignees.length === 1 && (
               <p className="text-[12px] text-ink/50 mt-xxs">
-                Assignee: <strong className="text-ink/70 font-medium">{subtask.assignees.join(", ")}</strong>
+                Assignee: <strong className="text-ink/70 font-medium capitalize">{subtask.assignees[0]}</strong>
+              </p>
+            )}
+            {subtask.assignees.length > 1 && (
+              <p className="text-[12px] text-ink/50 mt-xxs">
+                Owner: <strong className="text-primary font-semibold capitalize">{subtask.assignees[0]}</strong>
+                <span className="text-ink/30 mx-xs">•</span>
+                Co-assignee: <span className="text-ink/70 capitalize">{subtask.assignees.slice(1).join(", ")}</span>
               </p>
             )}
           </div>
