@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { StaffAssignmentHistoryLog } from "@/lib/types";
 
 interface StaffOption {
@@ -58,19 +58,8 @@ export default function StaffAssignmentHistoryDialog({
   const [searchStaff, setSearchStaff] = useState("");
   const [staffTab, setStaffTab] = useState<"all" | "team">("all");
 
-  useEffect(() => {
-    if (open) {
-      setSelectedStaff(currentAssignees);
-      setReason("");
-      setShowReassignForm(false);
-      setSearchStaff("");
-      setStaffTab("all");
-      fetchHistory();
-      fetchUsers();
-    }
-  }, [open, subtaskId, currentAssignees]);
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
+    if (!subtaskId) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/subtasks/${subtaskId}/assignment-history`);
@@ -83,9 +72,9 @@ export default function StaffAssignmentHistoryDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [subtaskId]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
       let res = await fetch("/api/staff");
@@ -95,7 +84,7 @@ export default function StaffAssignmentHistoryDialog({
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.staff || [];
-        const eligible = list.filter((u: any) => u.role === "staff" || u.role === "lead");
+        const eligible = list.filter((u: { role?: string }) => u.role === "staff" || u.role === "lead");
         setUserList(eligible);
       }
     } catch (err) {
@@ -103,7 +92,19 @@ export default function StaffAssignmentHistoryDialog({
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedStaff(currentAssignees);
+      setReason("");
+      setShowReassignForm(false);
+      setSearchStaff("");
+      setStaffTab("all");
+      fetchHistory();
+      fetchUsers();
+    }
+  }, [open, currentAssignees, fetchHistory, fetchUsers]);
 
   if (!open) return null;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
+import Link from "next/link";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -50,12 +51,12 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             >
               Coba Lagi
             </button>
-            <a
+            <Link
               href="/"
               className="h-[40px] rounded-lg px-lg text-[13px] font-[480] bg-surface-soft text-ink/60 hover:bg-hairline inline-flex items-center"
             >
               Kembali ke Dashboard
-            </a>
+            </Link>
           </div>
         </div>
       );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, use, useEffect } from "react";
+import Link from "next/link";
 import { Subtask } from "@/lib/types";
 import SubtaskKanban from "@/features/task/components/subtask-kanban";
 import MetadataSection from "@/features/task/components/metadata-section";
@@ -70,9 +71,9 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
       <div className="flex flex-col flex-1">
         <header className="sticky top-0 z-10 bg-canvas border-b border-hairline">
           <div className="max-w-[1280px] mx-auto px-xl h-[56px] flex items-center">
-            <a href="/" className="text-[14px] font-[480] text-ink/50 hover:text-ink transition-colors">
+            <Link href="/" className="text-[14px] font-[480] text-ink/50 hover:text-ink transition-colors">
               ← Kembali ke Dashboard
-            </a>
+            </Link>
           </div>
         </header>
         <main className="flex-1 flex items-center justify-center">

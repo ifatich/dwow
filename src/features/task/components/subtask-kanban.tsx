@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -18,8 +18,6 @@ import { Subtask, SubtaskStatus } from "@/lib/types";
 import type { ActivityLogEntry, StaffTimeContribution } from "@/lib/types";
 import { STAFF_COLORS } from "./staff-time-summary";
 import StaffTimeSummary from "./staff-time-summary";
-import ActivityLog from "./activity-log";
-import MetadataSection from "@/features/task/components/metadata-section";
 import EvidenceDialog from "@/features/task/components/evidence-dialog";
 import SubtaskDetailModal from "@/features/task/components/subtask-detail-modal";
 import StaffAssignmentHistoryDialog from "@/features/task/components/staff-assignment-history-dialog";
@@ -376,7 +374,7 @@ export default function SubtaskKanban({
   const [evidenceTarget, setEvidenceTarget] = useState<{ subtask: Subtask; targetColumn: SubtaskStatus } | null>(null);
   const [detailSubtask, setDetailSubtask] = useState<Subtask | null>(null);
   const [historySubtask, setHistorySubtask] = useState<Subtask | null>(null);
-  const [timerPending, setTimerPending] = useState<Set<string>>(new Set());
+  const [timerPending, _setTimerPending] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

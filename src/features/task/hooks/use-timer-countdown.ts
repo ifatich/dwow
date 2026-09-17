@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { ActivityLogEntry } from "@/lib/types";
 
 interface UseTimerCountdownResult {
@@ -23,7 +23,7 @@ export function useTimerCountdown(
 ): UseTimerCountdownResult {
   // Cari timestamp mulai dari activity log: entry "started" terakhir 
   // yang belum diikuti oleh "completed", "review_requested", "approved", atau "revision_requested"
-  const getStartTimestamp = (): number | null => {
+  const getStartTimestamp = useCallback((): number | null => {
     if (!activityLog || activityLog.length === 0) return null;
     const stopActions = new Set(["completed", "review_requested", "approved", "revision_requested", "paused"]);
     
@@ -53,24 +53,12 @@ export function useTimerCountdown(
     // Tidak ada batas usia maksimum — timer mengikuti activity log sebagai
     // source of truth. Subtask yang in_progress dalam waktu lama adalah valid.
     return new Date(sortedLogs[lastStartIdx].timestamp).getTime();
-  };
+  }, [activityLog]);
 
-  const [startTime, setStartTime] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
-  // Recalculate startTime whenever activityLog or isActive changes.
-  // This fixes the bug where the timer resets to 0 on page refresh —
-  // the activity log arrives asynchronously and startTime must be
-  // recomputed from the persisted "started" timestamp.
-  useEffect(() => {
-    if (!isActive) {
-      setStartTime(Date.now());
-      return;
-    }
-    const ts = getStartTimestamp();
-    setStartTime(ts || Date.now());
-  }, [isActive, activityLog]);
-
-  const [now, setNow] = useState(Date.now());
+  const startTimestamp = getStartTimestamp();
+  const startTime = !isActive ? now : (startTimestamp ?? now);
 
   useEffect(() => {
     if (!isActive) return;

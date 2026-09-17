@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 /**
  * Memvalidasi daftar assignee terhadap database users.
@@ -9,7 +9,6 @@ import { eq, inArray } from "drizzle-orm";
 export async function validateAssignees(assignees: string[]): Promise<string[]> {
   if (assignees.length === 0) return [];
 
-  const lowerNames = assignees.map((n) => n.toLowerCase());
   const foundUsers = await db
     .select({ username: users.username })
     .from(users);

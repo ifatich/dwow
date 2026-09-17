@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Konfigurasi simpan di memory (ganti dengan DB di production)
-let spreadsheetConfig = {
+const spreadsheetConfig = {
   spreadsheetId: "",
   appsScriptUrl: "",
   lastSyncAt: null as string | null,

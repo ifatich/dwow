@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { activityLogs, users, subtasks, tasks } from "@/db/schema";
-import { desc, asc, eq, and, like, or } from "drizzle-orm";
+import { desc, asc, eq } from "drizzle-orm";
 
 type LogAction =
   | "created" | "started" | "paused" | "resumed" | "completed"
