@@ -12,6 +12,7 @@ type UserRow = {
   role: string;
   department: string | null;
   capacity: number; // capacityHoursPerMonth
+  assignedLeads: Array<{ id: string; nama: string; username: string }>;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -31,7 +32,15 @@ export default function UsersPage() {
 
   // Form tambah user
   const [showAdd, setShowAdd] = useState(false);
-  const [newUser, setNewUser] = useState({ nama: "", username: "", password: "", role: "staff", department: "", capacityWeekly: 40 });
+  const [newUser, setNewUser] = useState({
+    nama: "",
+    username: "",
+    password: "",
+    role: "staff",
+    department: "",
+    capacityWeekly: 40,
+    leadId: "",
+  });
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -45,6 +54,7 @@ export default function UsersPage() {
         role: u.role,
         department: u.department,
         capacity: u.capacityHoursPerMonth,
+        assignedLeads: u.assignedLeads || [],
       })));
     } catch (err: any) {
       setError(err.message);
@@ -84,6 +94,44 @@ export default function UsersPage() {
     setEditing(null);
   };
 
+  const handleAssignLead = async (staffId: string, leadId: string) => {
+    try {
+      const res = await fetch("/api/master/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, staffId }),
+      });
+      if (res.ok) {
+        await fetchUsers();
+        showToast("✅ Staff berhasil ditugaskan ke Lead");
+      } else {
+        const err = await res.json();
+        showToast(`❌ ${err.error || "Gagal menugaskan lead"}`);
+      }
+    } catch {
+      showToast("❌ Terjadi kesalahan jaringan");
+    }
+  };
+
+  const handleUnassignLead = async (staffId: string, leadId: string, leadName: string) => {
+    try {
+      const res = await fetch("/api/master/teams", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, staffId }),
+      });
+      if (res.ok) {
+        await fetchUsers();
+        showToast(`Penugasan dari ${leadName} dicabut`);
+      } else {
+        const err = await res.json();
+        showToast(`❌ ${err.error || "Gagal mencabut penugasan"}`);
+      }
+    } catch {
+      showToast("❌ Terjadi kesalahan jaringan");
+    }
+  };
+
   const handleAdd = async () => {
     if (!newUser.nama || !newUser.username || !newUser.password) {
       setError("Nama, username, dan password wajib diisi");
@@ -106,9 +154,27 @@ export default function UsersPage() {
         const err = await res.json();
         throw new Error(err.error || "Gagal");
       }
+      const createdUser = await res.json();
+
+      if (newUser.role === "staff" && newUser.leadId && createdUser.id) {
+        await fetch("/api/master/teams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leadId: newUser.leadId, staffId: createdUser.id }),
+        });
+      }
+
       await fetchUsers();
       setShowAdd(false);
-      setNewUser({ nama: "", username: "", password: "", role: "staff", department: "", capacityWeekly: 40 });
+      setNewUser({
+        nama: "",
+        username: "",
+        password: "",
+        role: "staff",
+        department: "",
+        capacityWeekly: 40,
+        leadId: "",
+      });
       showToast("✅ User berhasil ditambahkan");
     } catch (err: any) {
       showToast(`❌ ${err.message}`);
@@ -175,6 +241,29 @@ export default function UsersPage() {
                 </select>
                 <input placeholder="Department (opsional)" value={newUser.department} onChange={(e) => setNewUser({ ...newUser, department: e.target.value })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" />
                 <input placeholder="Kapasitas (jam/minggu)" type="number" value={newUser.capacityWeekly} onChange={(e) => setNewUser({ ...newUser, capacityWeekly: parseInt(e.target.value) || 0 })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" min={1} max={80} />
+                {newUser.role === "staff" && (
+                  <div className="relative flex items-center col-span-2">
+                    <select
+                      value={newUser.leadId}
+                      onChange={(e) => setNewUser({ ...newUser, leadId: e.target.value })}
+                      className="w-full h-[36px] rounded-md border border-hairline pl-3 pr-8 text-[13px] bg-canvas text-ink appearance-none focus:outline-none focus:border-primary"
+                    >
+                      <option value="">— Pilih Lead Penanggung Jawab (Opsional) —</option>
+                      {users
+                        .filter((u) => u.role === "lead")
+                        .map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.nama} (Lead)
+                          </option>
+                        ))}
+                    </select>
+                    <span className="pointer-events-none absolute right-3 text-ink/40">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="flex gap-sm">
                 <button onClick={handleAdd} className="h-[36px] rounded-md bg-primary text-on-primary px-lg text-[13px] font-[540] cursor-pointer">Simpan</button>
@@ -188,7 +277,7 @@ export default function UsersPage() {
           )}
 
           {loading ? (
-            <TableSkeleton cols={5} />
+            <TableSkeleton cols={6} />
           ) : (
             <div className="bg-canvas border border-hairline rounded-lg overflow-hidden">
               <table className="w-full text-left">
@@ -197,6 +286,7 @@ export default function UsersPage() {
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40">Nama</th>
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40">Username</th>
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40">Role</th>
+                    <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40">Lead Penanggung Jawab</th>
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40 text-right">Kapasitas (j/mg → j/bl)</th>
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40 text-right">Aksi</th>
                   </tr>
@@ -221,6 +311,62 @@ export default function UsersPage() {
                         }`}>
                           {ROLE_LABELS[user.role] || user.role}
                         </span>
+                      </td>
+                      <td className="px-lg py-md">
+                        {user.role === "staff" ? (
+                          <div className="flex items-center flex-wrap gap-1">
+                            {user.assignedLeads && user.assignedLeads.length > 0 ? (
+                              user.assignedLeads.map((lead) => (
+                                <span
+                                  key={lead.id}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-soft border border-hairline text-[11px] font-[480] text-ink"
+                                >
+                                  <span>{lead.nama}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnassignLead(user.id, lead.id, lead.nama)}
+                                    className="text-ink/30 hover:text-red-500 cursor-pointer text-[9px] ml-0.5"
+                                    title={`Hapus dari tim ${lead.nama}`}
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-ink/35 italic mr-1">Belum ada Lead</span>
+                            )}
+
+                            <div className="relative inline-flex items-center">
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) handleAssignLead(user.id, e.target.value);
+                                }}
+                                className="h-[22px] text-[10px] rounded border border-hairline bg-canvas pl-2 pr-4 text-ink/60 hover:text-ink cursor-pointer focus:outline-none appearance-none"
+                              >
+                                <option value="">+ Lead</option>
+                                {users
+                                  .filter((u) => u.role === "lead" && !user.assignedLeads?.some((al) => al.id === u.id))
+                                  .map((l) => (
+                                    <option key={l.id} value={l.id}>
+                                      {l.nama}
+                                    </option>
+                                  ))}
+                              </select>
+                              <span className="pointer-events-none absolute right-1 text-ink/40">
+                                <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                              </span>
+                            </div>
+                          </div>
+                        ) : user.role === "lead" ? (
+                          <span className="text-[11px] font-[500] text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                            Lead ({users.filter((u) => u.assignedLeads?.some((al) => al.id === user.id)).length} Staff)
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-ink/35">—</span>
+                        )}
                       </td>
                       <td className="px-lg py-md text-right">
                         {editing === user.id ? (

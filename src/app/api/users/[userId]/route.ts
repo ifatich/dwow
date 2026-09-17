@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, sqlite } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -36,7 +36,7 @@ export async function PATCH(
   try {
     const { userId } = await params;
     const body = await request.json();
-    const { nama, role, department, capacityHoursPerMonth, password } = body;
+    const { nama, role, department, capacityHoursPerMonth, password, leadIds } = body;
 
     const [existing] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (!existing) {
@@ -59,6 +59,17 @@ export async function PATCH(
       .set(updateData)
       .where(eq(users.id, userId))
       .returning();
+
+    // Update relasi lead jika disertakan
+    if (leadIds !== undefined && Array.isArray(leadIds)) {
+      sqlite.prepare("DELETE FROM lead_staff_assignments WHERE staff_id = ?").run(userId);
+      const insertStmt = sqlite.prepare(
+        "INSERT INTO lead_staff_assignments (lead_id, staff_id, assigned_at) VALUES (?, ?, ?)"
+      );
+      for (const lId of leadIds) {
+        if (lId) insertStmt.run(lId, userId, now);
+      }
+    }
 
     const { passwordHash: _, ...safe } = updated;
     return NextResponse.json(safe);

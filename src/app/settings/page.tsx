@@ -5,6 +5,9 @@ import { signOut } from "next-auth/react";
 import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import BreadcrumbBar from "@/components/shared/breadcrumb-bar";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
+import SprintSyncDialog from "@/features/sprint-sync/components/sprint-sync-dialog";
+import MasterCategoryManager from "@/features/master-category/components/master-category-manager";
+import TeamRosterManager from "@/features/master-category/components/team-roster-manager";
 
 export default function SettingsPage() {
   const currentUser = useCurrentUser();
@@ -16,6 +19,10 @@ export default function SettingsPage() {
   const [appsScriptUrl, setAppsScriptUrl] = useState("");
   const [syncStatus, setSyncStatus] = useState("");
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+
+  const role = currentUser?.role;
+  const isReviewer = role === "lead" || role === "kadep" || role === "kadiv" || role === "super_admin";
 
   // Fetch spreadsheet config on mount
   useState(() => {
@@ -106,13 +113,19 @@ export default function SettingsPage() {
       />
 
       <main className="flex-1">
-        <div className="max-w-[720px] mx-auto px-xl py-xxl">
+        <div className="max-w-[860px] mx-auto px-xl py-xxl">
           <div className="mb-xxl">
             <h2 className="text-[36px] font-[340] tracking-[-0.54px] text-ink">Pengaturan</h2>
-            <p className="text-[16px] font-[320] text-ink/40 mt-sm">Konfigurasi aplikasi, notifikasi, dan integrasi.</p>
+            <p className="text-[16px] font-[320] text-ink/40 mt-sm">Konfigurasi aplikasi, master data kategori, notifikasi, dan integrasi.</p>
           </div>
 
           <div className="space-y-xxl">
+            {/* Master Data Kategori Project */}
+            {isReviewer && <MasterCategoryManager />}
+
+            {/* Struktur Tim & Anggota Staff per Lead */}
+            {isReviewer && <TeamRosterManager />}
+
             {/* Profil */}
             <section className="bg-canvas border border-hairline rounded-xl p-xxl space-y-lg">
               <h3 className="text-[16px] font-[540] text-ink">Profil</h3>
@@ -183,9 +196,21 @@ export default function SettingsPage() {
                 <input value={appsScriptUrl} onChange={(e) => setAppsScriptUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." className="w-full h-[40px] rounded-lg border border-hairline px-lg text-[14px] text-ink font-mono" />
               </div>
               {lastSync && <p className="text-[12px] text-ink/35">Terakhir sinkron: {new Date(lastSync).toLocaleString("id-ID")}</p>}
-              <div className="flex items-center gap-sm flex-wrap">
+              <div className="flex items-center gap-sm flex-wrap pt-xs">
                 <button type="button" onClick={handleTestConnection} className="h-[36px] rounded-pill px-lg text-[12px] font-[480] bg-surface-soft text-ink/60 hover:bg-hairline cursor-pointer">Uji Koneksi</button>
-                <button type="button" onClick={handleSaveSpreadsheet} className="h-[36px] rounded-pill px-lg text-[12px] font-[480] bg-primary text-on-primary hover:opacity-90 cursor-pointer">Simpan</button>
+                <button type="button" onClick={handleSaveSpreadsheet} className="h-[36px] rounded-pill px-lg text-[12px] font-[480] bg-surface-soft hover:bg-hairline text-ink cursor-pointer">Simpan URL</button>
+                {isReviewer && (
+                  <button
+                    type="button"
+                    onClick={() => setSyncDialogOpen(true)}
+                    className="h-[36px] rounded-pill px-lg text-[12px] font-[540] bg-primary text-on-primary hover:opacity-90 cursor-pointer flex items-center gap-xs shadow-xs"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                    </svg>
+                    <span>Sinkronisasi Sprint Sekarang</span>
+                  </button>
+                )}
                 {syncStatus && <span className={`text-[12px] font-[450] ${syncStatus.startsWith("✅") || syncStatus.startsWith("● Tersambung") ? "text-green-600" : syncStatus.startsWith("⏳") ? "text-ink/40" : "text-red-500"}`}>{syncStatus}</span>}
               </div>
             </section>
@@ -202,6 +227,15 @@ export default function SettingsPage() {
           </div>
         </div>
       </main>
+
+      {/* Dialog Sinkronisasi Sprint */}
+      <SprintSyncDialog
+        open={syncDialogOpen}
+        onClose={() => setSyncDialogOpen(false)}
+        onSuccess={() => {
+          setLastSync(new Date().toISOString());
+        }}
+      />
     </div>
   );
 }
