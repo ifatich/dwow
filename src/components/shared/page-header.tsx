@@ -43,6 +43,7 @@ export default function PageHeader({ middle, children }: PageHeaderProps) {
             {isAdmin && <Link href="/users" className="text-[13px] font-[450] text-ink/35 hover:text-ink/60 transition-colors flex-shrink-0">User Data</Link>}
             <Link href="/sprint-history" className="text-[13px] font-[450] text-ink/35 hover:text-ink/60 transition-colors flex-shrink-0">Sprint</Link>
             <Link href="/activity-history" className="text-[13px] font-[450] text-ink/35 hover:text-ink/60 transition-colors flex-shrink-0">Activity</Link>
+            {isReviewer && <Link href="/settings#master-categories" className="text-[13px] font-[450] text-ink/35 hover:text-ink/60 transition-colors flex-shrink-0">Master Data</Link>}
           </div>
 
           {middle}

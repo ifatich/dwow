@@ -13,6 +13,7 @@ import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { useRealtimeSync } from "@/lib/realtime-sync";
 import { DashboardSkeleton } from "@/components/shared/skeletons";
+import SprintSyncDialog from "@/features/sprint-sync/components/sprint-sync-dialog";
 
 interface DashboardData {
   activeSprint?: string;
@@ -36,6 +37,7 @@ export default function Home() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   const fetchDashboardData = useCallback(() => {
     const params = new URLSearchParams({ role, username: username || "" });
@@ -88,12 +90,27 @@ export default function Home() {
 
       <main className="flex-1" id="main-content">
         <div className="max-w-[1280px] mx-auto px-xl py-xxl">
-          {lastSync && (
-            <div className="flex items-center gap-sm mb-md">
-              <span className="text-[11px] font-[480] text-ink/30 uppercase tracking-[0.5px]">Sinkron Spreadsheet</span>
-              <span className="text-[11px] font-mono text-ink/45 bg-surface-soft rounded-pill px-sm py-xxs">{new Date(lastSync).toLocaleString("id-ID")}</span>
-            </div>
-          )}
+          <div className="flex items-center justify-between gap-md mb-md flex-wrap">
+            {lastSync ? (
+              <div className="flex items-center gap-sm">
+                <span className="text-[11px] font-[480] text-ink/30 uppercase tracking-[0.5px]">Sinkron Spreadsheet</span>
+                <span className="text-[11px] font-mono text-ink/45 bg-surface-soft rounded-pill px-sm py-xxs">{new Date(lastSync).toLocaleString("id-ID")}</span>
+              </div>
+            ) : <div />}
+
+            {isReviewer && (
+              <button
+                type="button"
+                onClick={() => setSyncDialogOpen(true)}
+                className="h-[32px] px-md rounded-pill border border-hairline bg-surface-soft hover:bg-hairline text-[12px] font-[540] text-ink transition-colors flex items-center gap-xs cursor-pointer shadow-xs"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                <span>Sinkronisasi Sprint</span>
+              </button>
+            )}
+          </div>
 
           {/* Mode Pengawasan Eksekutif (Manajerial Overview) */}
           {isExecutive && (
@@ -207,6 +224,13 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      {/* Dialog Sinkronisasi Sprint Google Sheets */}
+      <SprintSyncDialog
+        open={syncDialogOpen}
+        onClose={() => setSyncDialogOpen(false)}
+        onSuccess={fetchDashboardData}
+      />
     </div>
   );
 }
