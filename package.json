@@ -9,7 +9,15 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx tsx src/db/migrate.ts",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:backup": "npx tsx scripts/backup-db.ts",
+    "db:clean": "npx tsx scripts/clean-data.ts",
+    "db:restore": "npx tsx scripts/restore-db.ts",
+    "db:scrape": "npx tsx scripts/scrape-sprint-186.ts",
+    "db:scrape:sprint186": "npx tsx scripts/scrape-sprint-186.ts",
+    "db:import:sprint186": "npx tsx scripts/import-sprint-186.ts",
+    "db:scrape:sprint185": "npx tsx scripts/scrape-sprint-185.ts",
+    "db:import:sprint185": "npx tsx scripts/import-sprint-185.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

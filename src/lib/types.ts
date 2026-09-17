@@ -16,6 +16,17 @@ export interface ActivityLogEntry {
   note?: string;
 }
 
+export interface StaffAssignmentHistoryLog {
+  id: string;
+  subtaskId: string;
+  previousAssignees: string[];
+  newAssignees: string[];
+  changedBy: string;
+  changeType: "added" | "removed" | "reassigned";
+  reason?: string;
+  createdAt: string;
+}
+
 export interface Subtask {
   id: string;
   title: string;
@@ -29,6 +40,7 @@ export interface Subtask {
   timeContributions: StaffTimeContribution[];
   workloadHours: number;
   activityLog: ActivityLogEntry[];
+  assignmentHistory?: StaffAssignmentHistoryLog[];
 }
 
 export interface Task {

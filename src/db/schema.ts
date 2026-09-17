@@ -19,6 +19,32 @@ export const users = sqliteTable("users", {
 });
 
 /**
+ * Tabel: lead_staff_assignments
+ * Relasi Many-to-Many antara Lead dan Staff (Matrix Team Structure)
+ */
+export const leadStaffAssignments = sqliteTable("lead_staff_assignments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  leadId: text("lead_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  staffId: text("staff_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  assignedAt: text("assigned_at").notNull(),
+});
+
+/**
+ * Tabel: project_categories
+ * Master Data Kategori Project — menyimpan daftar kategori, kode tiket, dan default lead penanggung jawab.
+ */
+export const projectCategories = sqliteTable("project_categories", {
+  id: text("id").primaryKey(), // UUID
+  name: text("name").notNull().unique(), // e.g. "Pooling IT", "Digital Project"
+  code: text("code").notNull(), // e.g. "POOL", "DIGI"
+  leadId: text("lead_id").references(() => users.id),
+  description: text("description"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
  * Tabel: projects
  * Data proyek — setiap proyek punya lead dan sprint.
  */
@@ -134,3 +160,18 @@ export const timeContributions = sqliteTable("time_contributions", {
   staffId: text("staff_id").references(() => users.id),
   hours: real("hours").notNull().default(0),
 });
+
+/**
+ * Tabel: staff_assignment_history
+ */
+export const staffAssignmentHistory = sqliteTable("staff_assignment_history", {
+  id: text("id").primaryKey(),
+  subtaskId: text("subtask_id").notNull().references(() => subtasks.id, { onDelete: "cascade" }),
+  previousAssignees: text("previous_assignees"),
+  newAssignees: text("new_assignees").notNull(),
+  changedBy: text("changed_by").notNull(),
+  changeType: text("change_type", { enum: ["added", "removed", "reassigned"] }).notNull().default("reassigned"),
+  reason: text("reason"),
+  createdAt: text("created_at").notNull(),
+});
+
