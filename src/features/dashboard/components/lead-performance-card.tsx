@@ -125,12 +125,14 @@ export default function LeadPerformanceCard({ leads }: LeadPerformanceCardProps)
                 </div>
 
                 {/* Beban Kerja Anggota Tim di Bawah Lead Ini */}
-                {lead.teamMembers && lead.teamMembers.length > 0 && (
-                  <div className="mt-md pt-sm border-t border-hairline-soft">
-                    <div className="flex items-center justify-between mb-xs">
-                      <span className="text-[11px] font-[540] text-ink/70">Beban Kerja Tim ({lead.teamMembers.length} Staf)</span>
-                      <span className="font-mono text-[10px] text-ink/40">Sprint Ini</span>
-                    </div>
+                <div className="mt-md pt-sm border-t border-hairline-soft">
+                  <div className="flex items-center justify-between mb-xs">
+                    <span className="text-[11px] font-[540] text-ink/70">
+                      Beban Kerja Tim ({lead.teamMembers ? lead.teamMembers.length : 0} Staf)
+                    </span>
+                    <span className="font-mono text-[10px] text-ink/40">Sprint Ini</span>
+                  </div>
+                  {lead.teamMembers && lead.teamMembers.length > 0 ? (
                     <div className="space-y-sm max-h-[180px] overflow-y-auto pr-xs">
                       {lead.teamMembers.map((member) => {
                         const mPct = Math.min(100, (member.hours / member.capacity) * 100);
@@ -164,8 +166,12 @@ export default function LeadPerformanceCard({ leads }: LeadPerformanceCardProps)
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="py-md text-center text-[11px] text-ink/40 italic">
+                      Belum ada staf yang ditugaskan ke Lead ini.
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Micro Stats Footer */}

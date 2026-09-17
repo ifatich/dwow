@@ -77,11 +77,10 @@ export default function KanbanToolbar({
             key={opt.value}
             type="button"
             onClick={() => update({ priority: opt.value })}
-            className={`h-[32px] rounded-pill px-sm text-[12px] font-[480] transition-colors ${
-              filters.priority === opt.value
+            className={`h-[32px] rounded-pill px-sm text-[12px] font-[480] transition-colors ${filters.priority === opt.value
                 ? "bg-primary text-on-primary"
                 : "bg-surface-soft text-ink/50 hover:text-ink/70 hover:bg-hairline"
-            }`}
+              }`}
           >
             {opt.label}
           </button>
@@ -113,9 +112,9 @@ export default function KanbanToolbar({
       {hasActiveFilters && (
         <button
           type="button"
-          onClick={() =>
-            onFiltersChange({ search: "", priority: "all", assignee: "" })
-          }
+          onClick={() => {
+            onFiltersChange({ search: "", priority: "all", assignee: "" });
+          }}
           className="h-[32px] rounded-pill px-sm text-[12px] font-[480] text-ink/40 hover:text-ink/60 hover:bg-surface-soft transition-colors"
         >
           Reset Filter

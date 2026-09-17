@@ -20,7 +20,10 @@ function isUserAssignee(task: Task, user?: string): boolean {
   );
 }
 
-export default function SortableTaskCard({ task, currentUser }: SortableTaskCardProps) {
+export default function SortableTaskCard({
+  task,
+  currentUser,
+}: SortableTaskCardProps) {
   const router = useRouter();
   const sessionUser = useCurrentUser();
   
@@ -72,7 +75,10 @@ export default function SortableTaskCard({ task, currentUser }: SortableTaskCard
       suppressHydrationWarning
       className={`${canDrag ? "touch-none cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${isDragging ? "opacity-40" : ""}`}
     >
-      <TaskCard task={task} />
+      <TaskCard
+        task={task}
+        currentUser={currentUsername}
+      />
     </div>
   );
 }

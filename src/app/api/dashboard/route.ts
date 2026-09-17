@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, sqlite } from "@/db";
 import { projects, tasks, subtasks, subtaskAssignees, users } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -157,7 +157,10 @@ export async function GET(request: NextRequest) {
       const ptodo = allPtasks.filter((t) => t.status === "todo").length;
       const leadUser = p.leadId ? userMap.get(p.leadId) : null;
       const pSubtasks = allSubtasks.filter((s) => allPtasks.some((t) => t.id === s.taskId));
-      const pHours = pSubtasks.reduce((sum, s) => sum + s.workloadHours, 0);
+      const pHours = pSubtasks.reduce((sum, s) => {
+        const count = allAssignees.filter((a) => a.subtaskId === s.id).length || 1;
+        return sum + (s.workloadHours || 0) * count;
+      }, 0);
       return {
         id: p.id,
         name: p.title,
@@ -228,6 +231,38 @@ export async function GET(request: NextRequest) {
     });
     const unassignedSubtasksCount = activeSubtasks.filter((s) => !assignedSubtaskIds.has(s.id)).length;
 
+    // Ambil data penugasan staf per lead dari tabel lead_staff_assignments
+    const teamAssignments = sqlite.prepare(`
+      SELECT lsa.lead_id, lsa.staff_id, u.nama, u.username, u.capacity_hours_per_month
+      FROM lead_staff_assignments lsa
+      JOIN users u ON lsa.staff_id = u.id
+    `).all() as Array<{
+      lead_id: string;
+      staff_id: string;
+      nama: string;
+      username: string;
+      capacity_hours_per_month: number;
+    }>;
+
+    const assignedStaffByLead = new Map<string, Array<{
+      id: string;
+      name: string;
+      username: string;
+      capacity: number;
+    }>>();
+
+    for (const a of teamAssignments) {
+      if (!assignedStaffByLead.has(a.lead_id)) {
+        assignedStaffByLead.set(a.lead_id, []);
+      }
+      assignedStaffByLead.get(a.lead_id)!.push({
+        id: a.staff_id,
+        name: a.nama,
+        username: a.username,
+        capacity: Math.round((a.capacity_hours_per_month || 160) / 2),
+      });
+    }
+
     // Lead performance stats with explicit distinction between own execution vs review duties
     const leadUsers = allUsers.filter((u) => u.role === "lead");
     const leadsPerformance = leadUsers
@@ -241,12 +276,46 @@ export async function GET(request: NextRequest) {
 
         const ledSubtasks = allSubtasks.filter((s) => ledTasks.some((t) => t.id === s.taskId));
         const reviewPendingCount = ledSubtasks.filter((s) => s.status === "review").length;
-        const teamUserIds = new Set(
-          allAssignees
-            .filter((a) => ledSubtasks.some((s) => s.id === a.subtaskId))
-            .map((a) => a.staffId)
-            .filter(Boolean)
-        );
+
+        // Ambil penugasan staf definitif dari Struktur Tim (lead_staff_assignments)
+        const myStaffList = assignedStaffByLead.get(lead.id) || [];
+        const hasCustomAssignments = teamAssignments.length > 0;
+
+        let teamSize = myStaffList.length;
+        let teamMembers: Array<{ username: string; name: string; hours: number; capacity: number }> = [];
+
+        if (hasCustomAssignments) {
+          // Gunakan penugasan staf yang definitif dari Master Data Struktur Tim
+          teamMembers = myStaffList
+            .map((staff) => ({
+              username: staff.username,
+              name: staff.name,
+              hours: workloadMap.get(staff.username) || 0,
+              capacity: staff.capacity,
+            }))
+            .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name));
+        } else {
+          // Fallback jika belum ada penugasan di master data (HANYA role staff, jangan sertakan sesama lead)
+          const fallbackMemberMap = new Map<string, { username: string; name: string; hours: number; capacity: number }>();
+          for (const s of ledSubtasks) {
+            const assignees = allAssignees.filter((a) => a.subtaskId === s.id);
+            for (const a of assignees) {
+              const u = a.staffId ? userMap.get(a.staffId) : undefined;
+              if (u && u.role === "staff") {
+                const current = fallbackMemberMap.get(u.username) || {
+                  username: u.username,
+                  name: u.nama,
+                  hours: 0,
+                  capacity: Math.round((u.capacityHoursPerMonth || 160) / 2),
+                };
+                current.hours += s.workloadHours || 0;
+                fallbackMemberMap.set(u.username, current);
+              }
+            }
+          }
+          teamMembers = Array.from(fallbackMemberMap.values()).sort((a, b) => b.hours - a.hours);
+          teamSize = teamMembers.length;
+        }
 
         // Own execution subtasks (Subtasks assigned directly to lead as executor)
         const ownAssignees = allAssignees.filter((a) => a.staffId === lead.id);
@@ -256,26 +325,6 @@ export async function GET(request: NextRequest) {
         const ownSubtasksDone = ownSubtasks.filter((s) => s.status === "done").length;
         const ownWorkloadHours = Math.round(ownSubtasks.reduce((sum, s) => sum + s.workloadHours, 0));
 
-        // Team Members Workload Breakdown under this Lead's Projects
-        const teamMemberMap = new Map<string, { username: string; name: string; hours: number; capacity: number }>();
-        for (const s of ledSubtasks) {
-          const assignees = allAssignees.filter((a) => a.subtaskId === s.id);
-          for (const a of assignees) {
-            const u = a.staffId ? userMap.get(a.staffId) : undefined;
-            if (u) {
-              const current = teamMemberMap.get(u.username) || {
-                username: u.username,
-                name: u.nama,
-                hours: 0,
-                capacity: Math.round((u.capacityHoursPerMonth || 160) / 2),
-              };
-              current.hours += s.workloadHours || 0;
-              teamMemberMap.set(u.username, current);
-            }
-          }
-        }
-        const teamMembers = Array.from(teamMemberMap.values()).sort((a, b) => b.hours - a.hours);
-
         return {
           username: lead.username,
           name: lead.nama,
@@ -284,7 +333,7 @@ export async function GET(request: NextRequest) {
           doneTasks,
           completionRate,
           reviewPendingCount,
-          teamSize: teamUserIds.size,
+          teamSize,
           ownSubtasksTotal,
           ownSubtasksDone,
           ownWorkloadHours,

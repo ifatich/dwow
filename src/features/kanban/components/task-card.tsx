@@ -11,12 +11,21 @@ const PRIORITY_LABEL: Record<Task["priority"], string> = {
 
 interface TaskCardProps {
   task: Task;
+  currentUser?: string;
 }
 
-export default function TaskCard({ task }: TaskCardProps) {
+export default function TaskCard({ task, currentUser }: TaskCardProps) {
   const completed = task.subtasks.filter((s) => s.done).length;
   const total = task.subtasks.length;
   const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Cek apakah ada subtask milik pengguna yang sedang login
+  const normalizedUser = currentUser?.trim().toLowerCase();
+  const isMyTask = normalizedUser
+    ? task.subtasks.some((s) =>
+      s.assignees.some((a) => a.toLowerCase() === normalizedUser)
+    )
+    : false;
 
   // Deadline calculation
   const today = new Date();
@@ -49,15 +58,17 @@ export default function TaskCard({ task }: TaskCardProps) {
     <div
       role="button"
       tabIndex={0}
-      className="w-full text-left bg-canvas border border-hairline hover:border-ink/20 rounded-lg p-lg 
-                 transition-colors duration-200 cursor-pointer group"
+      className={`w-full text-left rounded-lg p-lg transition-all duration-200 cursor-pointer group ${isMyTask
+        ? "bg-canvas border border-lime-500"
+        : "bg-canvas border border-hairline hover:border-ink/20 hover:shadow-sm"
+        }`}
     >
       {/* Ticket ID + Priority + Deadline */}
-      <div className="flex items-center justify-between mb-sm">
+      <div className="flex items-center justify-between mb-sm gap-xs flex-wrap">
         <span className="font-mono text-[11px] uppercase tracking-[0.6px] text-ink/50">
           {task.ticketId}
         </span>
-        <div className="flex items-center gap-xxs">
+        <div className="flex items-center gap-xxs flex-wrap">
           <span
             className={`inline-flex items-center rounded-pill px-[10px] py-[2px] text-[11px] font-medium priority-${task.priority}`}
           >
@@ -113,11 +124,21 @@ export default function TaskCard({ task }: TaskCardProps) {
           }
           return (
             <div className="flex items-center gap-xxs">
-              {taskAssignees.slice(0, 4).map((name) => (
-                <span key={name} className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-full bg-primary/10 text-[10px] font-[540] text-primary uppercase" title={name}>
-                  {name.charAt(0)}
-                </span>
-              ))}
+              {taskAssignees.slice(0, 4).map((name) => {
+                const isUser = normalizedUser && name.toLowerCase() === normalizedUser;
+                return (
+                  <span
+                    key={name}
+                    className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[10px] font-[540] uppercase transition-all ${isUser
+                      ? "bg-lime-500 text-white font-bold"
+                      : "bg-primary/10 text-primary"
+                      }`}
+                    title={name}
+                  >
+                    {name.charAt(0)}
+                  </span>
+                );
+              })}
               {taskAssignees.length > 4 && (
                 <span className="text-[11px] text-ink/40">+{taskAssignees.length - 4}</span>
               )}

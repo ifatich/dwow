@@ -55,6 +55,7 @@ interface KanbanBoardProps {
 
 export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps) {
   const user = useCurrentUser();
+  const activeUsername = user?.username || currentUser;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -327,7 +328,7 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
                     tasks={getTasksByStatus(column.id)}
                     isInvalidDrop={isInvalidDrop}
                     isActiveDrag={!!activeTask}
-                    currentUser={currentUser}
+                    currentUser={activeUsername}
                   />
                 );
               })}
@@ -340,7 +341,7 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
         <DragOverlay>
           {activeTask ? (
             <div className="opacity-90 scale-105 rotate-[2deg]">
-              <TaskCard task={activeTask} />
+              <TaskCard task={activeTask} currentUser={activeUsername} />
             </div>
           ) : null}
         </DragOverlay>

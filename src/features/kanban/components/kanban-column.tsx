@@ -19,7 +19,13 @@ interface KanbanColumnProps {
   currentUser?: string;
 }
 
-export default function KanbanColumn({ column, tasks, isInvalidDrop, isActiveDrag, currentUser }: KanbanColumnProps) {
+export default function KanbanColumn({
+  column,
+  tasks,
+  isInvalidDrop,
+  isActiveDrag,
+  currentUser,
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const accent = COLUMN_ACCENT[column.id];
 
@@ -59,7 +65,11 @@ export default function KanbanColumn({ column, tasks, isInvalidDrop, isActiveDra
           </div>
         ) : (
           tasks.map((task) => (
-            <SortableTaskCard key={task.id} task={task} currentUser={currentUser} />
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              currentUser={currentUser}
+            />
           ))
         )}
       </div>
