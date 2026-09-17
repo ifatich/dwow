@@ -6,8 +6,9 @@ const PUBLIC_ROUTES = ["/login", "/api/auth"];
 
 const ROLE_PROTECTED: Record<string, string[]> = {
   "/users": ["super_admin"],
-  "/api/users": ["super_admin"],
   "/reports": ["lead", "kadep", "super_admin"],
+  "/api/sprint/sync": ["lead", "kadep", "kadiv", "super_admin"],
+  "/api/master": ["lead", "kadep", "kadiv", "super_admin"],
 };
 
 export default NextAuth(authConfig).auth((req) => {
@@ -28,6 +29,12 @@ export default NextAuth(authConfig).auth((req) => {
   }
 
   const userRole = (session.user as any).role as string;
+
+  // Mutasi user (POST, PATCH, DELETE) hanya untuk super_admin
+  if (pathname.startsWith("/api/users") && req.method !== "GET" && userRole !== "super_admin") {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
   for (const [route, allowedRoles] of Object.entries(ROLE_PROTECTED)) {
     if (pathname.startsWith(route) && !allowedRoles.includes(userRole)) {
       return new NextResponse("Forbidden", { status: 403 });
