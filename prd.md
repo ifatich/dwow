@@ -57,7 +57,7 @@ Aplikasi dibangun menggunakan **Next.js 16 (App Router) + Tailwind CSS v4 + SQLi
 | **Middleware Route Protection** | ⚠️ | `src/middleware.ts` | Sebagian route dilindungi middleware |
 | **Google Sheets Sync Engine** | ⚠️ | `/api/sync/pull` | Endpoint API & Apps Script tersedia |
 | **Auto Sprint Cut-off** | 🔲 | - | Belum ada job penjadwalan 2-mingguan otomatis |
-| **Staff Assignment History** | 🔲 | - | Rencana histori perubahan tim |
+| **Staff Assignment History** | ✅ | `staff-assignment-history-dialog.tsx` | Audit trail & histori pergantian pelaksana subtask |
 | **PostgreSQL Migration** | 🔲 | - | Rencana migrasi dari SQLite ke Postgres |
 
 ---

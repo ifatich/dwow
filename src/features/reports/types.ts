@@ -7,8 +7,8 @@
  * @module features/reports/types
  */
 
-export type Period = "bulanan" | "kuartalan";
-export type ReportTab = "individual" | "sprint";
+export type Period = "bulanan" | "kuartalan" | "tahunan";
+export type ReportTab = "individual" | "sprint" | "executive";
 
 /** Detailed metrics for an individual staff or lead member. */
 export interface StaffMetric {
@@ -48,6 +48,35 @@ export interface SummaryData {
   underutilizedCount: number;
 }
 
+export interface ExecutiveProjectItem {
+  id: string;
+  name: string;
+  description: string;
+  lead: string;
+  sprint: string;
+  statusCategory: "in_progress" | "completed" | "planned";
+  totalTasks: number;
+  doneTasks: number;
+  inProgressTasks: number;
+  todoTasks: number;
+  progressPct: number;
+  workloadHours: number;
+}
+
+export interface ExecutiveProjectReportData {
+  summary: {
+    totalProjects: number;
+    inProgressCount: number;
+    completedCount: number;
+    plannedCount: number;
+    overallProgressPct: number;
+    totalWorkloadHours: number;
+  };
+  inProgressProjects: ExecutiveProjectItem[];
+  completedProjects: ExecutiveProjectItem[];
+  plannedProjects: ExecutiveProjectItem[];
+}
+
 /** Complete report response payload. */
 export interface ReportData {
   period: string;
@@ -56,6 +85,7 @@ export interface ReportData {
   totalSprintsCount: number;
   summary: SummaryData;
   staff: StaffMetric[];
+  executiveProjects?: ExecutiveProjectReportData;
 }
 
 /** Single project item within a sprint group. */

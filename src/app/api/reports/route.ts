@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     return userFilterList.includes(uName);
   };
   const sprintFilter = searchParams.get("sprint") || "all";
-  const periodMultiplier = period === "kuartalan" ? 3 : 1;
+  const periodMultiplier = period === "tahunan" ? 12 : period === "kuartalan" ? 3 : 1;
 
   try {
     // 1. Get all users
@@ -215,6 +215,79 @@ export async function GET(request: NextRequest) {
         ? Math.round(staff.reduce((s, st) => s + st.performanceScore, 0) / staff.length)
         : 0;
 
+    // Executive Projects high-level categorization
+    const allTasksList = await db.select().from(tasks);
+    const allSubtasksListForProj = await db.select().from(subtasks);
+    const allSubtaskAssignees = await db.select({ subtaskId: subtaskAssignees.subtaskId }).from(subtaskAssignees);
+
+    const executiveProjectsList = allProjects.map((p) => {
+      const projTasks = allTasksList.filter((t) => t.projectId === p.id);
+      const totalTasksCount = projTasks.length;
+      const doneTasksCount = projTasks.filter((t) => t.status === "done").length;
+      const inProgressTasksCount = projTasks.filter((t) => t.status === "in-progress" || t.status === "review").length;
+      const todoTasksCount = projTasks.filter((t) => t.status === "todo").length;
+      
+      const leadUser = userMap.get(p.leadId || "");
+      const leadName = leadUser?.username || "unassigned";
+
+      const projTaskIds = new Set(projTasks.map((t) => t.id));
+      const projSubtasks = allSubtasksListForProj.filter((st) => projTaskIds.has(st.taskId));
+      const workloadHours = projSubtasks.reduce((sum, st) => {
+        const count = allSubtaskAssignees.filter((a) => a.subtaskId === st.id).length || 1;
+        return sum + (st.workloadHours || 0) * count;
+      }, 0);
+
+      const progressPct = totalTasksCount > 0 ? Math.round((doneTasksCount / totalTasksCount) * 100) : 0;
+
+      let statusCategory: "in_progress" | "completed" | "planned" = "planned";
+      if (totalTasksCount > 0 && doneTasksCount === totalTasksCount) {
+        statusCategory = "completed";
+      } else if (progressPct > 0 || inProgressTasksCount > 0) {
+        statusCategory = "in_progress";
+      } else {
+        statusCategory = "planned";
+      }
+
+      return {
+        id: p.id,
+        name: p.title,
+        description: p.description || "",
+        lead: leadName,
+        sprint: p.sprint || "Sprint General",
+        statusCategory,
+        totalTasks: totalTasksCount,
+        doneTasks: doneTasksCount,
+        inProgressTasks: inProgressTasksCount,
+        todoTasks: todoTasksCount,
+        progressPct,
+        workloadHours,
+      };
+    });
+
+    const inProgressProjects = executiveProjectsList.filter((p) => p.statusCategory === "in_progress");
+    const completedProjects = executiveProjectsList.filter((p) => p.statusCategory === "completed");
+    const plannedProjects = executiveProjectsList.filter((p) => p.statusCategory === "planned");
+
+    const totalProjCount = executiveProjectsList.length;
+    const totalWorkloadHours = executiveProjectsList.reduce((sum, p) => sum + p.workloadHours, 0);
+    const overallProgressPct = totalProjCount > 0 
+      ? Math.round(executiveProjectsList.reduce((sum, p) => sum + p.progressPct, 0) / totalProjCount) 
+      : 0;
+
+    const executiveProjects = {
+      summary: {
+        totalProjects: totalProjCount,
+        inProgressCount: inProgressProjects.length,
+        completedCount: completedProjects.length,
+        plannedCount: plannedProjects.length,
+        overallProgressPct,
+        totalWorkloadHours,
+      },
+      inProgressProjects,
+      completedProjects,
+      plannedProjects,
+    };
+
     return NextResponse.json({
       period,
       sprintFilter,
@@ -233,6 +306,7 @@ export async function GET(request: NextRequest) {
         underutilizedCount: staff.filter((st) => st.performanceCategory === "Underutilized").length,
       },
       staff,
+      executiveProjects,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

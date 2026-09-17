@@ -11,12 +11,14 @@ import type { Period, ReportTab, ReportData, SprintGroupItem } from "@/features/
 import KPIHeaderCards from "@/features/reports/components/kpi-header-cards";
 import IndividualPerformanceTable from "@/features/reports/components/individual-performance-table";
 import SprintProjectTable from "@/features/reports/components/sprint-project-table";
+import ExecutiveProjectReportTable from "@/features/reports/components/executive-project-report-table";
 
 /**
  * Performance Report Page (`/reports`)
  *
  * Serves as the central executive report dashboard aggregating metrics
- * across staff individual performance, workload utilization, and sprint achievements.
+ * across staff individual performance, workload utilization, sprint achievements,
+ * and high-level executive project status reports.
  */
 export default function ReportsPage() {
   const [period, setPeriod] = useState<Period>("bulanan");
@@ -68,7 +70,7 @@ export default function ReportsPage() {
               Laporan Kinerja<br />Komprehensif
             </h2>
             <p className="text-[18px] font-[330] text-ink/50 mt-sm max-w-[640px]">
-              Ringkasan performa tim, pencapaian tugas, jam kerja aktual, dan statistik per sprint secara terpadu.
+              Ringkasan performa tim, pencapaian tugas, jam kerja aktual, dan laporan proyek eksekutif secara terpadu.
             </p>
           </div>
 
@@ -87,7 +89,7 @@ export default function ReportsPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.54px] text-ink/40 mr-xs">
                 Periode:
               </span>
-              {(["bulanan", "kuartalan"] as Period[]).map((p) => (
+              {(["bulanan", "kuartalan", "tahunan"] as Period[]).map((p) => (
                 <button
                   key={p}
                   type="button"
@@ -96,7 +98,7 @@ export default function ReportsPage() {
                     period === p ? "bg-primary text-on-primary" : "bg-surface-soft text-ink/50 hover:text-ink"
                   }`}
                 >
-                  {p === "bulanan" ? "Bulanan" : "Kuartalan (3 Bln)"}
+                  {p === "bulanan" ? "Bulanan" : p === "kuartalan" ? "Kuartalan (3 Bln)" : "Tahunan (1 Thn)"}
                 </button>
               ))}
             </div>
@@ -114,7 +116,7 @@ export default function ReportsPage() {
                     : "bg-surface-soft text-ink/50 hover:text-ink"
                 }`}
               >
-                📋 Kinerja Individu
+                Kinerja Individu
               </button>
               <button
                 type="button"
@@ -127,7 +129,20 @@ export default function ReportsPage() {
                     : "bg-surface-soft text-ink/50 hover:text-ink"
                 }`}
               >
-                📊 Performa Sprint & Proyek
+                Performa Sprint & Proyek
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "executive"}
+                onClick={() => setActiveTab("executive")}
+                className={`h-[34px] rounded-pill px-lg text-[13px] font-[480] transition-colors cursor-pointer ${
+                  activeTab === "executive"
+                    ? "bg-ink text-canvas shadow-xs"
+                    : "bg-surface-soft text-ink/50 hover:text-ink"
+                }`}
+              >
+                Laporan Proyek Eksekutif
               </button>
             </div>
           </div>
@@ -152,6 +167,14 @@ export default function ReportsPage() {
               {/* Tab 2: Sprint & Project Performance Table */}
               {activeTab === "sprint" && (
                 <SprintProjectTable sprints={sprintData} selectedSprint={selectedSprint} />
+              )}
+
+              {/* Tab 3: Executive High-Level Project Status Report */}
+              {activeTab === "executive" && (
+                <ExecutiveProjectReportTable
+                  data={data.executiveProjects}
+                  periodLabel={period === "tahunan" ? "Tahunan (1 Thn)" : period === "kuartalan" ? "Kuartalan (3 Bln)" : "Bulanan"}
+                />
               )}
             </>
           )}
