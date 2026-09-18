@@ -44,6 +44,17 @@ export default function PageHeader({ middle, children }: PageHeaderProps) {
             <Link href="/sprint-history" className="text-[13px] font-[450] text-ink/35 hover:text-ink/60 transition-colors flex-shrink-0">Sprint</Link>
             <Link href="/activity-history" className="text-[13px] font-[450] text-ink/35 hover:text-ink/60 transition-colors flex-shrink-0">Activity</Link>
             {isReviewer && <Link href="/settings#master-categories" className="text-[13px] font-[450] text-ink/35 hover:text-ink/60 transition-colors flex-shrink-0">Master Data</Link>}
+            <a
+              href="/presentation/index.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[12px] font-[550] text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-colors flex-shrink-0"
+              title="Buka Pitch Deck / Single Page Presentation"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+              <span>Deck PPT</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+            </a>
           </div>
 
           {middle}

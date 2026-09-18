@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/features/auth/services/auth.config";
 
-const PUBLIC_ROUTES = ["/login", "/api/auth"];
+const PUBLIC_ROUTES = ["/login", "/api/auth", "/presentation"];
 
 const ROLE_PROTECTED: Record<string, string[]> = {
   "/users": ["super_admin"],

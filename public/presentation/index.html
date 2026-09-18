@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskForge — Modern Sprint & Task Orchestration Platform</title>
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-deep: #090d16;
+      --bg-surface: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.7);
+      --bg-card-hover: rgba(51, 65, 85, 0.8);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-active: rgba(99, 102, 241, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-deep);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Ambient Background Gradients */
+    .ambient-glow {
+      position: fixed;
+      top: -20%;
+      left: -10%;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.05) 50%, transparent 80%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .ambient-glow-2 {
+      position: fixed;
+      bottom: -20%;
+      right: -10%;
+      width: 50vw;
+      height: 50vh;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, rgba(99, 102, 241, 0.08) 50%, transparent 80%);
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Header Nav */
+    header.deck-header {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(12px);
+      z-index: 20;
+      flex-shrink: 0;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: -0.4px;
+      color: #fff;
+    }
+    .brand-badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .header-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    .header-btn kbd {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+    }
+
+    /* Deck Viewport */
+    .deck-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 32px;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 24px 32px;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.97) translateY(12px);
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1) translateY(0);
+      z-index: 10;
+    }
+
+    /* Slide Content Styles */
+    .slide-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 12px;
+    }
+    .slide-eyebrow span.bullet {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+    }
+
+    .slide-title {
+      font-family: var(--font-heading);
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      color: #ffffff;
+      margin-bottom: 14px;
+    }
+    .slide-title .gradient-text {
+      background: linear-gradient(135deg, #ffffff 30%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-subtitle {
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.55;
+      color: var(--text-muted);
+      max-width: 780px;
+      margin-bottom: 32px;
+    }
+
+    /* Grid Layouts */
+    .slide-grid-2 {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 32px;
+      align-items: center;
+      width: 100%;
+    }
+    .slide-grid-equal {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 100%;
+    }
+    .slide-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      width: 100%;
+    }
+
+    /* Feature Cards */
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card:hover {
+      border-color: var(--border-active);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.6), transparent);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      color: #818cf8;
+      margin-bottom: 18px;
+    }
+    .card-icon.cyan {
+      background: rgba(6, 182, 212, 0.12);
+      border-color: rgba(6, 182, 212, 0.25);
+      color: #22d3ee;
+    }
+    .card-icon.emerald {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.25);
+      color: #34d399;
+    }
+    .card-icon.amber {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.25);
+      color: #fbbf24;
+    }
+    .card-icon.rose {
+      background: rgba(244, 63, 94, 0.12);
+      border-color: rgba(244, 63, 94, 0.25);
+      color: #fb7185;
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+      letter-spacing: -0.2px;
+    }
+    .card-desc {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+    .card-list {
+      margin-top: 14px;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #cbd5e1;
+      line-height: 1.45;
+    }
+    .card-list li svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: var(--accent-cyan);
+    }
+
+    /* Visual Media Containers */
+    .media-frame {
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+      position: relative;
+    }
+    .media-frame img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
+    .media-frame .frame-header {
+      height: 32px;
+      background: rgba(30, 41, 59, 0.6);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 6px;
+    }
+    .frame-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+    .frame-dot.red { background: #ef4444; }
+    .frame-dot.yellow { background: #f59e0b; }
+    .frame-dot.green { background: #10b981; }
+    .frame-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-faint);
+      margin-left: 8px;
+    }
+
+    /* Comparison Table for Slide 8 */
+    .comparison-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      font-size: 13.5px;
+    }
+    .comparison-table th {
+      background: rgba(30, 41, 59, 0.9);
+      padding: 14px 20px;
+      text-align: left;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      color: #fff;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .comparison-table td {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+    .comparison-table tr:last-child td {
+      border-bottom: none;
+    }
+    .comparison-table td.aspect {
+      font-weight: 600;
+      color: #fff;
+    }
+    .comparison-table td.before {
+      color: #fca5a5;
+    }
+    .comparison-table td.after {
+      color: #6ee7b7;
+      font-weight: 600;
+    }
+
+    /* Footer & Controls */
+    footer.deck-footer {
+      height: 60px;
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      z-index: 20;
+      flex-shrink: 0;
+    }
+
+    .slide-progress-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .slide-counter {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .slide-counter span.current {
+      color: #818cf8;
+      font-size: 15px;
+    }
+
+    .progress-bar-container {
+      width: 180px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #06b6d4);
+      border-radius: 999px;
+      width: 12.5%;
+      transition: width 0.3s ease;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: #818cf8;
+      color: #fff;
+    }
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .nav-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Speaker Notes Drawer */
+    .notes-drawer {
+      position: fixed;
+      bottom: 60px;
+      left: 0;
+      right: 0;
+      background: rgba(15, 23, 42, 0.95);
+      border-top: 1px solid var(--border-subtle);
+      backdrop-filter: blur(20px);
+      padding: 20px 32px;
+      z-index: 30;
+      transform: translateY(110%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .notes-drawer.open {
+      transform: translateY(0);
+    }
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .notes-title {
+      font-size: 13px;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      color: var(--accent-amber);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .notes-close {
+      background: none;
+      border: none;
+      color: var(--text-faint);
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .notes-body {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #cbd5e1;
+      font-style: italic;
+    }
+
+    /* Slide Grid Modal (Overview) */
+    .overview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(16px);
+      z-index: 50;
+      display: none;
+      padding: 48px;
+      overflow-y: auto;
+    }
+    .overview-modal.open {
+      display: block;
+    }
+    .overview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .overview-title {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .overview-card {
+      aspect-ratio: 16/9;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .overview-card:hover {
+      border-color: #818cf8;
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+    }
+    .overview-card.active {
+      border-color: #818cf8;
+      background: rgba(99, 102, 241, 0.15);
+      box-shadow: 0 0 0 2px #818cf8;
+    }
+    .overview-num {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+    .overview-name {
+      font-family: var(--font-heading);
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.35;
+    }
+
+    /* Print / Export Styles */
+    @media print {
+      body {
+        background: #fff !important;
+        color: #0f172a !important;
+        overflow: visible !important;
+      }
+      header.deck-header, footer.deck-footer, .ambient-glow, .ambient-glow-2, .notes-drawer, .overview-modal {
+        display: none !important;
+      }
+      .deck-container {
+        padding: 0 !important;
+        display: block !important;
+      }
+      .slide {
+        position: relative !important;
+        inset: auto !important;
+        opacity: 1 !important;
+        transform: none !important;
+        page-break-after: always;
+        height: 100vh;
+        padding: 40px !important;
+        box-sizing: border-box;
+      }
+      .slide-title, .card-title, .overview-title {
+        color: #0f172a !important;
+      }
+      .slide-title .gradient-text {
+        -webkit-text-fill-color: #0f172a !important;
+      }
+      .feature-card {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #334155 !important;
+      }
+      .card-desc, .slide-subtitle {
+        color: #475569 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ambient-glow"></div>
+  <div class="ambient-glow-2"></div>
+
+  <!-- Header Navigation -->
+  <header class="deck-header">
+    <div class="brand-logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#818cf8;">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+      <span>TaskForge</span>
+      <span class="brand-badge">Executive Deck</span>
+    </div>
+
+    <div class="header-actions">
+      <button class="header-btn" onclick="toggleOverview()" title="Lihat semua slide (G)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <span>Overview</span>
+        <kbd>G</kbd>
+      </button>
+
+      <button class="header-btn" onclick="toggleNotes()" title="Speaker Notes (N)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span>Notes</span>
+        <kbd>N</kbd>
+      </button>
+
+      <button class="header-btn" onclick="window.print()" title="Export ke PDF / Print (P)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        <span>Print PDF</span>
+        <kbd>P</kbd>
+      </button>
+
+      <button class="header-btn" onclick="toggleFullScreen()" title="Full Screen (F)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+        <span>Full</span>
+        <kbd>F</kbd>
+      </button>
+    </div>
+  </header>
+
+  <!-- Deck Main Viewport -->
+  <main class="deck-container">
+
+    <!-- ==================== SLIDE 1: COVER ==================== -->
+    <section class="slide active" data-slide="1">
+      <div class="slide-grid-2">
+        <div>
+          <div class="slide-eyebrow">
+            <span class="bullet"></span>
+            <span>Product & Engineering Orchestration</span>
+          </div>
+          <h1 class="slide-title">
+            Modern Sprint & Task <br />
+            <span class="gradient-text">Orchestration Platform</span>
+          </h1>
+          <p class="slide-subtitle">
+            Menghubungkan fleksibilitas <strong>Product Design Workflow</strong> dengan <strong>Akuntabilitas Berbasis Bukti</strong> (<em>Evidence-Based</em>) dan visibilitas <strong>Dashboard Management</strong> eksekutif.
+          </p>
+
+          <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 28px;">
+            <div style="display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); font-size:12px; font-weight:600; color:#a5b4fc;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              1. Product Design Workflow
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; background:rgba(6,182,212,0.12); border:1px solid rgba(6,182,212,0.3); font-size:12px; font-weight:600; color:#67e8f9;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              2. Simple & Easy to Use
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); font-size:12px; font-weight:600; color:#6ee7b7;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              3. Evidence-Based Working
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); font-size:12px; font-weight:600; color:#fde68a;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              4. Dashboard Management
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:20px; font-size:13px; color:var(--text-faint);">
+            <div>🏢 Divisi: <strong>Product & UI/UX Design</strong></div>
+            <div>⚡ Tech: <strong>Next.js 16 + Drizzle ORM</strong></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="media-frame" style="box-shadow: 0 25px 60px -15px rgba(99, 102, 241, 0.3);">
+            <div class="frame-header">
+              <span class="frame-dot red"></span>
+              <span class="frame-dot yellow"></span>
+              <span class="frame-dot green"></span>
+              <span class="frame-title">taskforge-workspace-orchestrator.app</span>
+            </div>
+            <img src="./assets/hero-cover.jpg" alt="TaskForge Workspace Overview" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 2: THE CHALLENGE ==================== -->
+    <section class="slide" data-slide="2">
+      <div class="slide-eyebrow">
+        <span class="bullet"></span>
+        <span>Problem Statement & Context</span>
+      </div>
+      <h2 class="slide-title">Mengapa Tools Konvensional & Spreadsheet Menghambat Tim?</h2>
+      <p class="slide-subtitle">
+        Tim produk dan pimpinan sering kali terjebak antara tools kaku yang memperlambat pengerjaan atau spreadsheet manual yang rawan hilang kendali.
+      </p>
+
+      <div class="slide-grid-2">
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="feature-card">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+              <div class="card-icon rose" style="margin-bottom:0; width:36px; height:36px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+              </div>
+              <h3 class="card-title" style="font-size:16px;">1. Beban Input Manual & Overload Jam Kerja</h3>
+            </div>
+            <p class="card-desc">
+              Pencatatan berulang di spreadsheet membuang 4–6 jam/minggu. Staf mengalami overload tanpa deteksi dini (beban mencapai 84j/80j kapasitas).
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+              <div class="card-icon amber" style="margin-bottom:0; width:36px; height:36px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              </div>
+              <h3 class="card-title" style="font-size:16px;">2. Klaim Status Selesai yang "Abu-abu"</h3>
+            </div>
+            <p class="card-desc">
+              Status tiket "Done" sering diklaim tanpa lampiran artefak yang valid. Lead kesulitan mengaudit apakah file Figma atau kode sudah benar-benar siap rilis.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+              <div class="card-icon cyan" style="margin-bottom:0; width:36px; height:36px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              </div>
+              <h3 class="card-title" style="font-size:16px;">3. Data Kinerja Terisolasi (Blind Spot Manajemen)</h3>
+            </div>
+            <p class="card-desc">
+              Pimpinan tidak memiliki dashboard terintegrasi untuk melihat distribusi beban tim, bottleneck review, atau rekapitulasi evaluasi kerja objektif.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <div class="media-frame">
+            <div class="frame-header">
+              <span class="frame-dot red"></span>
+              <span class="frame-dot yellow"></span>
+              <span class="frame-dot green"></span>
+              <span class="frame-title">Kasus Nyata: Overload Beban Jam Spreadsheet</span>
+            </div>
+            <img src="./assets/spreadsheet-overload.png" alt="Spreadsheet Overload Kasus Nyata" style="max-height: 380px; object-fit: contain; background: #fff;" />
+          </div>
+          <p style="font-size:12px; color:var(--text-faint); margin-top:10px; text-align:center;">
+            Data faktual: Jam kerja staf melonjak di atas kapasitas (merah) tanpa visibilitas kendali otomatis.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 3: PILAR 1 ==================== -->
+    <section class="slide" data-slide="3">
+      <div class="slide-eyebrow">
+        <span class="bullet"></span>
+        <span>Pilar 1 • Desain & Eksekusi</span>
+      </div>
+      <h2 class="slide-title">Dibangun Berdasarkan Workflow Product Design</h2>
+      <p class="slide-subtitle">
+        Bukan sekadar checklist kaku; sistem ini mencerminkan lifecycle nyata tim produk: <strong>BRD/Epic $\rightarrow$ Task Detail $\rightarrow$ Subtask $\rightarrow$ Figma Review $\rightarrow$ Iterasi $\rightarrow$ Handoff</strong>.
+      </p>
+
+      <div class="slide-grid-equal">
+        <div class="feature-card">
+          <div class="card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          </div>
+          <h3 class="card-title">Hierarki 4-Level Terstruktur</h3>
+          <p class="card-desc">
+            Setiap ide bisnis dari BRD dipecah menjadi Sprint $\rightarrow$ Project $\rightarrow$ Task $\rightarrow$ Subtask dengan kejelasan relasi parent-child.
+          </p>
+          <ul class="card-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Sinkronisasi status vertikal otomatis</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Menghindari task mengambang tanpa pemilik</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon cyan">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+          <h3 class="card-title">Definition of Done (DoD) Built-in</h3>
+          <p class="card-desc">
+            Setiap Task memuat bagian <em>Goals</em>, <em>Description</em>, dan <em>DoD</em> eksplisit yang langsung terlihat oleh staf pelaksana sebelum mulai bekerja.
+          </p>
+          <ul class="card-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Standar kualitas seragam antar desainer</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Mencegah miskomunikasi ekspektasi output</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon emerald">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <h3 class="card-title">Matriks Lead & Multi-Assignee</h3>
+          <p class="card-desc">
+            Mendukung kolaborasi multi-disiplin: satu subtask desain UI dapat dikerjakan desainer utama bersama researcher atau copywriter.
+          </p>
+          <ul class="card-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Role Lead yang jelas sebagai reviewer</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Pemetaan kapasitas tim per squad</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 4: PILAR 2 ==================== -->
+    <section class="slide" data-slide="4">
+      <div class="slide-eyebrow">
+        <span class="bullet"></span>
+        <span>Pilar 2 • Pengalaman Pengguna</span>
+      </div>
+      <h2 class="slide-title">Simple, Fast & Easy to Use</h2>
+      <p class="slide-subtitle">
+        Dirancang dengan filosofi <strong>Zero-Friction UX</strong>: tidak ada form bertumpuk, interaksi serba satu-klik, dan filter yang memprioritaskan fokus kerja individu.
+      </p>
+
+      <div class="slide-grid-2">
+        <div>
+          <div class="media-frame" style="margin-bottom:16px;">
+            <div class="frame-header">
+              <span class="frame-dot red"></span>
+              <span class="frame-dot yellow"></span>
+              <span class="frame-dot green"></span>
+              <span class="frame-title">Filter Cepat & Spotlight Personil</span>
+            </div>
+            <img src="./assets/filter-spotlight.png" alt="Filter Spotlight Bar" />
+          </div>
+
+          <div class="media-frame">
+            <div class="frame-header">
+              <span class="frame-dot red"></span>
+              <span class="frame-dot yellow"></span>
+              <span class="frame-dot green"></span>
+              <span class="frame-title">Subtask Card dengan Timer & Kontribusi Staf</span>
+            </div>
+            <img src="./assets/subtask-card.png" alt="Subtask Card" style="max-height: 200px; object-fit: contain; background: #fafafa;" />
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="feature-card">
+            <div class="card-icon amber">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            <h3 class="card-title">Sorot Personil Sekali Klik (Spotlight)</h3>
+            <p class="card-desc">
+              Cukup klik avatar atau tombol <strong>"Tugas Saya"</strong> untuk menyaring puluhan tugas dalam hitungan milidetik. Papan langsung menampilkan apa yang harus dikerjakan hari ini.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon cyan">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+            </div>
+            <h3 class="card-title">Interactive Drag-and-Drop Kanban</h3>
+            <p class="card-desc">
+              Papan Kanban berbasis sensor keyboard dan pointer modern (@dnd-kit). Perubahan status terasa mulus, responsif, dan bebas lag.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon emerald">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <h3 class="card-title">Timer Satu Sentuhan (1-Click Action)</h3>
+            <p class="card-desc">
+              Mulai waktu kerja langsung dari kartu subtask dengan tombol <code>[▶ Mulai]</code>. Tidak perlu membuka popup rumit untuk mencatat jam kerja.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 5: PILAR 3 ==================== -->
+    <section class="slide" data-slide="5">
+      <div class="slide-eyebrow">
+        <span class="bullet"></span>
+        <span>Pilar 3 • Integritas & Kualitas</span>
+      </div>
+      <h2 class="slide-title">Mendukung Evidence-Based Working</h2>
+      <p class="slide-subtitle">
+        Tidak ada lagi klaim "sudah selesai" tanpa bukti konkret. Sistem memberlakukan <strong>Quality Gate</strong> otomatis sebelum tugas dapat berpindah ke tahap review.
+      </p>
+
+      <div class="slide-grid-2">
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="feature-card">
+            <div class="card-icon cyan">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <h3 class="card-title">Evidence Gatekeeping Sebelum Review</h3>
+            <p class="card-desc">
+              Saat kartu ditarik ke <em>In Review</em>, dialog bukti kerja otomatis muncul mewajibkan tautan Figma/PR, screenshot, atau catatan hasil kerja.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon emerald">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <h3 class="card-title">Alur Persetujuan Tertutup (Closed-Loop)</h3>
+            <p class="card-desc">
+              Lead memiliki wewenang: <strong>Approve</strong> (masuk Done) atau <strong>Request Revision</strong> dengan feedback spesifik yang terekam di activity feed.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon amber">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <h3 class="card-title">Audit Trail Realokasi Staf</h3>
+            <p class="card-desc">
+              Setiap pergantian assignee mewajibkan pengisian alasan re-alokasi dan tersimpan permanen di histori audit untuk mencegah saling lempar tanggung jawab.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <div class="media-frame" style="margin-bottom:16px;">
+            <div class="frame-header">
+              <span class="frame-dot red"></span>
+              <span class="frame-dot yellow"></span>
+              <span class="frame-dot green"></span>
+              <span class="frame-title">Verified Completion & Evidence Badge</span>
+            </div>
+            <img src="./assets/evidence-art.jpg" alt="Verified Completion Concept" />
+          </div>
+
+          <div class="media-frame">
+            <div class="frame-header">
+              <span class="frame-dot red"></span>
+              <span class="frame-dot yellow"></span>
+              <span class="frame-dot green"></span>
+              <span class="frame-title">Dialog Histori Penugasan Staf & Audit Trail</span>
+            </div>
+            <img src="./assets/audit-trail-reassignment.png" alt="Audit Trail Modal" style="max-height: 220px; object-fit: contain; background: #fff;" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 6: PILAR 4 ==================== -->
+    <section class="slide" data-slide="6">
+      <div class="slide-eyebrow">
+        <span class="bullet"></span>
+        <span>Pilar 4 • Visibilitas Eksekutif</span>
+      </div>
+      <h2 class="slide-title">Mendukung Dashboard Management & Analytics</h2>
+      <p class="slide-subtitle">
+        Mengubah ribuan log aktivitas menjadi <strong>Executive Cockpit</strong>: pimpinan divisi dapat memantau produktivitas, beban sprint, dan balance kapasitas secara real-time.
+      </p>
+
+      <div class="slide-grid-2">
+        <div>
+          <div class="media-frame">
+            <div class="frame-header">
+              <span class="frame-dot red"></span>
+              <span class="frame-dot yellow"></span>
+              <span class="frame-dot green"></span>
+              <span class="frame-title">Executive Dashboard: Performa Lead & Beban Tim</span>
+            </div>
+            <img src="./assets/lead-performance-workload.png" alt="Executive Performance Dashboard" />
+          </div>
+          <p style="font-size:12px; color:var(--text-faint); margin-top:8px; text-align:center;">
+            Tampilan langsung kapasitas jam staf vs target 80 jam sprint, subtask lead, dan status review.
+          </p>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="feature-card">
+            <div class="card-icon cyan">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            </div>
+            <h3 class="card-title">Formula Skor Kinerja Multi-Faktor</h3>
+            <p class="card-desc">
+              Bukan hanya jumlah tiket: penilaian mengombinasikan rasio penyelesaian subtask, kontribusi jam kerja efektif, dan indeks beban kerja proporsional.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon emerald">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>
+            </div>
+            <h3 class="card-title">Deteksi Dini Bottleneck & Burnout</h3>
+            <p class="card-desc">
+              Warna indikator otomatis (Merah &gt; 80j, Kuning mendekati kapasitas, Hijau ideal) membantu Lead menyeimbangkan pembagian tugas sebelum sprint berakhir.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon amber">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </div>
+            <h3 class="card-title">Export Laporan Instan (PDF & Excel)</h3>
+            <p class="card-desc">
+              Satu klik untuk mengunduh rekapitulasi sprint resmi dalam format <code>.xlsx</code> dan <code>.pdf</code> yang siap dibawa ke rapat evaluasi pimpinan.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 7: SPRINT SYNC ==================== -->
+    <section class="slide" data-slide="7">
+      <div class="slide-eyebrow">
+        <span class="bullet"></span>
+        <span>Jembatan Ekosistem • Interoperabilitas</span>
+      </div>
+      <h2 class="slide-title">Smart Sprint Sync: Jembatan Google Spreadsheet</h2>
+      <p class="slide-subtitle">
+        Mengadopsi sistem baru tanpa memaksa tim mengubah kebiasaan lama. Hubungkan Google Spreadsheet perencanaan sprint langsung ke database TaskForge secara cerdas.
+      </p>
+
+      <div class="slide-grid-equal">
+        <div class="feature-card">
+          <div class="card-icon cyan">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </div>
+          <h3 class="card-title">1. Tarik Data Otomatis (Pull Sync)</h3>
+          <p class="card-desc">
+            Melalui Apps Script API terintegrasi, baris sprint ditarik dalam hitungan detik dengan verifikasi latency dan status koneksi real-time.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon amber">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </div>
+          <h3 class="card-title">2. Smart Diff Preview</h3>
+          <p class="card-desc">
+            Sistem menganalisis selisih data sebelum ditulis ke database: task baru, task diubah, dan task selesai ditampilkan transparan agar tidak terjadi penimpaan salah.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon emerald">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <h3 class="card-title">3. Relational Mapping Otomatis</h3>
+          <p class="card-desc">
+            Tabel datar spreadsheet langsung diparsing menjadi hierarki relasional SQLite/Drizzle lengkap dengan pemetaan assignee, bobot jam, dan kategori lead.
+          </p>
+        </div>
+      </div>
+
+      <div style="margin-top:24px; padding:18px 24px; border-radius:14px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <span style="font-size:24px;">🔄</span>
+          <div>
+            <div style="font-weight:700; font-size:14px; color:#fff;">Zero Friction Onboarding untuk Manajemen</div>
+            <div style="font-size:12.5px; color:var(--text-muted);">Lead tetap bisa menyusun rencana sprint di Spreadsheet, sementara eksekusi dan kontrol kualitas berjalan di TaskForge.</div>
+          </div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:11px; padding:4px 10px; border-radius:6px; background:rgba(0,0,0,0.3); color:#818cf8; border:1px solid rgba(99,102,241,0.3);">
+          SYNC SPEED: &lt; 850ms
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 8: KESIMPULAN & ROI ==================== -->
+    <section class="slide" data-slide="8">
+      <div class="slide-eyebrow">
+        <span class="bullet"></span>
+        <span>Kesimpulan • Nilai Bisnis & ROI</span>
+      </div>
+      <h2 class="slide-title">Transformasi Efisiensi & Integritas Kerja Tim</h2>
+      <p class="slide-subtitle">
+        Menghadirkan titik temu sempurna antara kenyamanan desainer bekerja secara fleksibel dengan kebutuhan manajemen akan akuntabilitas dan kontrol strategis.
+      </p>
+
+      <div style="margin-bottom:24px;">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th style="width:25%;">Aspek Operasional</th>
+              <th style="width:37%;">Sebelumnya (Cara Lama / Spreadsheet)</th>
+              <th style="width:38%;">Dengan TaskForge (Platform Baru)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="aspect">Akuntabilitas Task</td>
+              <td class="before">Klaim selesai mandiri tanpa bukti fisik terlampir</td>
+              <td class="after">Wajib Evidence Gate (Figma URL / PR / Dokumen)</td>
+            </tr>
+            <tr>
+              <td class="aspect">Manajemen Waktu</td>
+              <td class="before">Estimasi kasar & pencatatan log manual yang sering lupa</td>
+              <td class="after">Timer presisi tersinkronisasi database aktivitas</td>
+            </tr>
+            <tr>
+              <td class="aspect">Pemerataan Beban</td>
+              <td class="before">Sering terjadi staf overload hingga 84 jam tanpa disadari</td>
+              <td class="after">Kapasitas 80j terlihat visual & audit re-alokasi transparan</td>
+            </tr>
+            <tr>
+              <td class="aspect">Pelaporan Eksekutif</td>
+              <td class="before">Membutuhkan 1–2 hari merekap spreadsheet sebelum rapat</td>
+              <td class="after">1-Click Export ke PDF & Excel resmi kapan saja</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 28px; border-radius:14px; background:linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(6,182,212,0.1) 100%); border:1px solid rgba(99,102,241,0.4);">
+        <div>
+          <div style="font-family:var(--font-heading); font-size:16px; font-weight:800; color:#fff; margin-bottom:4px;">Langkah Selanjutnya (Next Steps)</div>
+          <div style="font-size:13px; color:var(--text-muted);">Uji coba implementasi pada 1 Sprint berjalan & workshop singkat pengenalan Evidence Gate untuk tim produk.</div>
+        </div>
+        <button onclick="goToSlide(1)" style="padding:10px 20px; border-radius:10px; background:#6366f1; color:#fff; font-weight:600; font-size:13px; border:none; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 10px 20px rgba(99,102,241,0.3);">
+          <span>Kembali ke Awal</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Speaker Notes Drawer -->
+  <aside class="notes-drawer" id="notesDrawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        <span>Speaker Notes — Slide <span id="notesSlideNum">1</span></span>
+      </div>
+      <button class="notes-close" onclick="toggleNotes()">✕</button>
+    </div>
+    <div class="notes-body" id="notesContent">
+      <!-- Injected via JavaScript -->
+    </div>
+  </aside>
+
+  <!-- Slide Overview Grid Modal -->
+  <div class="overview-modal" id="overviewModal" onclick="handleModalBackdropClick(event)">
+    <div class="overview-header">
+      <div class="overview-title">Daftar Slide Presentasi</div>
+      <button class="header-btn" onclick="toggleOverview()">Tutup [Esc]</button>
+    </div>
+    <div class="overview-grid" id="overviewGrid">
+      <!-- Injected via JavaScript -->
+    </div>
+  </div>
+
+  <!-- Footer Controls -->
+  <footer class="deck-footer">
+    <div class="slide-progress-wrapper">
+      <div class="slide-counter">
+        <span class="current" id="currentSlideNum">01</span>
+        <span style="color:var(--text-faint);">/</span>
+        <span style="color:var(--text-faint);" id="totalSlideNum">08</span>
+      </div>
+
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+
+      <div style="font-size:12px; color:var(--text-faint); margin-left:12px;" id="slideCaption">
+        Cover & Platform Overview
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <button class="nav-btn" id="prevBtn" onclick="prevSlide()" title="Slide Sebelumnya (Panah Kiri)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <button class="nav-btn" id="nextBtn" onclick="nextSlide()" title="Slide Berikutnya (Panah Kanan / Spasi)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+    </div>
+  </footer>
+
+  <script>
+    // Speaker Notes Data per Slide
+    const speakerNotes = {
+      1: "Selamat pagi/siang bapak/ibu sekalian. Hari ini saya memperkenalkan TaskForge, platform manajemen tugas modern yang dibangun khusus untuk menjawab tantangan kolaborasi tim produk dan desain saat ini: sebuah sistem yang bukan hanya mudah digunakan, tapi juga memastikan setiap pekerjaan memiliki bukti nyata dan terukur secara transparan bagi manajemen.",
+      2: "Banyak tim saat ini terjebak di antara dua ekstrem: menggunakan tools enterprise yang terlalu rumit dan kaku untuk alur desain, atau spreadsheet manual yang rawan lepas kendali. Seperti yang terlihat pada data kasus nyata di kanan, beban kerja personil bisa melonjak tajam hingga 84 jam tanpa ada sistem kendali yang mendeteksinya secara dini.",
+      3: "Pilar pertama adalah keselarasan dengan alur kerja Product Design. Desain produk bukanlah lini pabrik yang kaku; ada siklus riset, eksplorasi komponen, feedback, hingga iterasi. Platform ini memetakan tahapan tersebut secara modular, lengkap dengan kriteria Definition of Done yang transparan di tiap tiket.",
+      4: "Pilar kedua adalah kemudahan penggunaan. Kami memegang prinsip bahwa software produktivitas tidak boleh membebani penggunanya. Melalui papan Kanban drag-and-drop dan bar filter personil instan, tim dapat menemukan dan memperbarui tugas mereka hanya dalam hitungan detik tanpa membuka puluhan menu berjenjang.",
+      5: "Pilar ketiga adalah Evidence-Based Working. Sering kali terjadi status selesai di atas kertas tetapi hasilnya belum siap pakai. Di sini, sistem memiliki Evidence Gate: staf wajib melampirkan link artefak atau screenshot sebelum task berpindah ke review. Lead pun memiliki tombol satu klik untuk menyetujui atau meminta revisi terarah.",
+      6: "Pilar keempat adalah Dashboard Management. Untuk level Head, Kadep, dan Kadiv, platform ini menyediakan kendali helikopter. Pimpinan tidak perlu lagi memeriksa tugas satu per satu; dashboard metrik langsung menampilkan staf mana yang memiliki performa terbaik, divisi mana yang overload, dan laporan siap diekspor ke PDF/Excel untuk evaluasi bulanan.",
+      7: "Kami memahami bahwa banyak pimpinan masih terbiasa menyusun sprint di Google Sheets. Oleh karena itu, sistem ini dilengkapi Smart Sprint Sync. Spreadsheet sprint ditarik otomatis dan ditampilkan preview perbedaannya sebelum disinkronkan, sehingga transisi ke sistem ini berlangsung mulus tanpa resistensi.",
+      8: "Sebagai penutup, platform ini memberikan win-win solution: para desainer mendapatkan ruang kerja yang simpel dan selaras dengan proses kreatif mereka, sementara manajemen mendapatkan transparansi penuh dan data akurat untuk pengambilan keputusan. Terima kasih, saya buka untuk sesi diskusi dan tanya jawab."
+    };
+
+    const slideTitles = {
+      1: "Cover & Platform Overview",
+      2: "Latar Belakang & Masalah (The Challenge)",
+      3: "Pilar 1: Workflow Product Design",
+      4: "Pilar 2: Simple & Easy to Use",
+      5: "Pilar 3: Evidence-Based Working",
+      6: "Pilar 4: Dashboard Management",
+      7: "Jembatan Ekosistem: Smart Sprint Sync",
+      8: "Kesimpulan & Dampak Nilai Bisnis"
+    };
+
+    let currentSlide = 1;
+    const totalSlides = 8;
+
+    function updateSlide() {
+      // Toggle active class on slides
+      document.querySelectorAll('.slide').forEach((s) => {
+        const slideNum = parseInt(s.getAttribute('data-slide'), 10);
+        if (slideNum === currentSlide) {
+          s.classList.add('active');
+        } else {
+          s.classList.remove('active');
+        }
+      });
+
+      // Update counters and labels
+      document.getElementById('currentSlideNum').textContent = String(currentSlide).padStart(2, '0');
+      document.getElementById('totalSlideNum').textContent = String(totalSlides).padStart(2, '0');
+      document.getElementById('progressBar').style.width = `${(currentSlide / totalSlides) * 100}%`;
+      document.getElementById('slideCaption').textContent = slideTitles[currentSlide] || "";
+
+      // Update speaker notes
+      document.getElementById('notesSlideNum').textContent = currentSlide;
+      document.getElementById('notesContent').textContent = speakerNotes[currentSlide] || "Belum ada catatan pembicara untuk slide ini.";
+
+      // Update nav button states
+      document.getElementById('prevBtn').disabled = currentSlide === 1;
+      document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+
+      // Update overview active card if open
+      document.querySelectorAll('.overview-card').forEach((c) => {
+        const num = parseInt(c.getAttribute('data-slide-index'), 10);
+        if (num === currentSlide) {
+          c.classList.add('active');
+        } else {
+          c.classList.remove('active');
+        }
+      });
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(num) {
+      if (num >= 1 && num <= totalSlides) {
+        currentSlide = num;
+        updateSlide();
+        closeOverview();
+      }
+    }
+
+    // Toggle Speaker Notes
+    function toggleNotes() {
+      const drawer = document.getElementById('notesDrawer');
+      drawer.classList.toggle('open');
+    }
+
+    // Toggle Overview Modal
+    function toggleOverview() {
+      const modal = document.getElementById('overviewModal');
+      modal.classList.toggle('open');
+      if (modal.classList.contains('open')) {
+        renderOverviewGrid();
+      }
+    }
+
+    function closeOverview() {
+      document.getElementById('overviewModal').classList.remove('open');
+    }
+
+    function handleModalBackdropClick(e) {
+      if (e.target.id === 'overviewModal') {
+        closeOverview();
+      }
+    }
+
+    function renderOverviewGrid() {
+      const container = document.getElementById('overviewGrid');
+      container.innerHTML = '';
+      for (let i = 1; i <= totalSlides; i++) {
+        const card = document.createElement('div');
+        card.className = `overview-card ${i === currentSlide ? 'active' : ''}`;
+        card.setAttribute('data-slide-index', i);
+        card.onclick = () => goToSlide(i);
+        card.innerHTML = `
+          <div class="overview-num">SLIDE 0${i}</div>
+          <div class="overview-name">${slideTitles[i]}</div>
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    // Fullscreen Toggle
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    }
+
+    // Keyboard Navigation
+    document.addEventListener('keydown', (e) => {
+      // Avoid hotkeys if typing in an input
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'Backspace') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(1);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(totalSlides);
+      } else if (e.key.toLowerCase() === 'n') {
+        toggleNotes();
+      } else if (e.key.toLowerCase() === 'g') {
+        toggleOverview();
+      } else if (e.key.toLowerCase() === 'f') {
+        toggleFullScreen();
+      } else if (e.key.toLowerCase() === 'p') {
+        window.print();
+      } else if (e.key === 'Escape') {
+        closeOverview();
+        document.getElementById('notesDrawer').classList.remove('open');
+      } else if (!isNaN(parseInt(e.key, 10)) && parseInt(e.key, 10) >= 1 && parseInt(e.key, 10) <= totalSlides) {
+        goToSlide(parseInt(e.key, 10));
+      }
+    });
+
+    // Touch Swipe Navigation for mobile & tablet
+    let touchStartX = 0;
+    let touchEndX = 0;
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, false);
+    document.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchEndX < touchStartX - 50) nextSlide();
+      if (touchEndX > touchStartX + 50) prevSlide();
+    }, false);
+
+    // Initial render
+    updateSlide();
+  </script>
+</body>
+</html>
