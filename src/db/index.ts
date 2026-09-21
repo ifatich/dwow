@@ -4,8 +4,19 @@ import path from "path";
 import * as schema from "./schema";
 
 const dbPath = path.join(process.cwd(), "taskforge.db");
-export const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
 
+let sqliteInstance: Database.Database;
+
+try {
+  const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
+  sqliteInstance = new Database(dbPath, { readonly: isVercel });
+  if (!isVercel) {
+    sqliteInstance.pragma("journal_mode = WAL");
+    sqliteInstance.pragma("foreign_keys = ON");
+  }
+} catch {
+  sqliteInstance = new Database(dbPath, { readonly: true });
+}
+
+export const sqlite = sqliteInstance;
 export const db = drizzle(sqlite, { schema });
