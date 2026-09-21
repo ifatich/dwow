@@ -1,9 +1,18 @@
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 import * as schema from "./schema";
 
-const dbPath = path.join(process.cwd(), "taskforge.db");
+// Resolve taskforge.db path safely across local & Vercel Serverless Function bundles
+let dbPath = path.join(process.cwd(), "taskforge.db");
+
+if (!fs.existsSync(dbPath)) {
+  const altPath = path.join(process.cwd(), ".next/standalone/taskforge.db");
+  if (fs.existsSync(altPath)) {
+    dbPath = altPath;
+  }
+}
 
 let sqliteInstance: Database.Database;
 
