@@ -12,7 +12,7 @@ export const users = sqliteTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: text("role", { enum: ["staff", "lead", "kadep", "kadiv", "super_admin"] }).notNull().default("staff"),
   department: text("department"),
-  capacityHoursPerMonth: real("capacity_hours_per_month").notNull().default(160),
+  capacityHoursPerMonth: real("capacity_hours_per_month").notNull().default(72),
   leaveDays: real("leave_days").notNull().default(0),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

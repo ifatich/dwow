@@ -48,6 +48,9 @@ interface StaffMetric {
   reviewsPending?: number;
   totalCombinedTasks?: number;
   doneCombinedTasks?: number;
+  performanceScore?: number;
+  performanceCategory?: string;
+  weightBreakdown?: string;
 }
 
 import {
@@ -78,7 +81,7 @@ export function getPerformanceDetail(m: StaffMetric): PerformanceResult {
 }
 
 export function calcPerformanceScore(m: StaffMetric): number {
-  return getPerformanceDetail(m).score;
+  return m.performanceScore !== undefined ? m.performanceScore : getPerformanceDetail(m).score;
 }
 
 export default function IndividualMetricsPage() {
@@ -230,7 +233,7 @@ export default function IndividualMetricsPage() {
               <div className="bg-surface-soft/60 border border-hairline-soft rounded-lg p-md">
                 <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-ink/40">Rata-Rata Utilisasi</span>
                 <p className="text-[24px] font-[600] text-blue-600 mt-xxs tabular-nums">{avgUtilization}%</p>
-                <p className="text-[11px] text-ink/40 mt-[2px]">Kapasitas 80j/sprint</p>
+                <p className="text-[11px] text-ink/40 mt-[2px]">Kapasitas 72j/sprint</p>
               </div>
 
               <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-lg p-md">
@@ -385,11 +388,7 @@ export default function IndividualMetricsPage() {
                               )}
                             </div>
                             <p className="text-[11px] font-[320] text-ink/40 mt-xxs">
-                              {isLeadRole ? (
-                                <>Kapasitas Review: <span className="font-[540] text-ink/70">{m.reviewsTotal || 0} Subtask Tim</span></>
-                              ) : (
-                                <>Kapasitas: <span className="font-[540] text-ink/70">{m.capacity} jam</span></>
-                              )}
+                              Kapasitas: <span className="font-[540] text-ink/70">{m.capacity} jam</span>
                               <span className="text-ink/30 ml-xs">
                                 {selectedSprint === "all" ? "(Akumulasi All Sprint)" : "(1 Sprint)"}
                               </span>
@@ -403,16 +402,6 @@ export default function IndividualMetricsPage() {
                             <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-sm py-[2px] rounded-pill font-[600] flex items-center gap-xxs shadow-2xs">
                               {topRank === 1 ? "🥇" : topRank === 2 ? "🥈" : "🥉"} Top Performer #{topRank}
                             </span>
-                          ) : isLeadRole ? (
-                            m.reviewsPending && m.reviewsPending > 0 ? (
-                              <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-amber-800 bg-amber-100/90 border border-amber-300 px-sm py-[2px] rounded-pill font-[600]">
-                                ⚠️ {m.reviewsPending} Review Menunggu
-                              </span>
-                            ) : (
-                              <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-sm py-[2px] rounded-pill font-[600]">
-                                ✓ Review Clean
-                              </span>
-                            )
                           ) : isOverload ? (
                             <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-red-800 bg-red-100/90 border border-red-300 px-sm py-[2px] rounded-pill font-[600]">
                               🔴 Overload ({m.utilization}%)
@@ -431,51 +420,37 @@ export default function IndividualMetricsPage() {
 
                       {/* Main Metrics Breakdown */}
                       <div className="space-y-md">
-                        {/* Workload Progress Bar (For Staff) / Lead Responsibility Header (For Lead) */}
-                        {isLeadRole ? (
-                          <div className="space-y-xs">
-                            <div className="flex justify-between items-center text-[12px]">
-                              <span className="font-[450] text-ink/60">Tanggung Jawab Pengawasan Lead</span>
-                              <span className="font-mono text-[12px] font-[540] tabular-nums text-ink">
-                                {m.reviewsTotal || 0} Subtask Tim
-                              </span>
-                            </div>
-                            <div className="w-full h-[8px] bg-canvas/80 rounded-full overflow-hidden relative border border-hairline-soft">
-                              <div className="h-full bg-blue-500 rounded-full" style={{ width: "100%" }} />
-                            </div>
+                        {/* Workload Progress Bar (For All Roles) */}
+                        <div className="space-y-xs">
+                          <div className="flex justify-between items-center text-[12px]">
+                            <span className="font-[450] text-ink/60 flex items-center gap-xs">
+                              Beban Kerja
+                              {hoursDiff > 0 ? (
+                                <span className="text-[10px] font-[550] text-red-600 bg-red-50 border border-red-200 px-xs py-[1px] rounded">
+                                  +{Math.round(hoursDiff)} jam Kelebihan
+                                </span>
+                              ) : hoursDiff < 0 ? (
+                                <span className="text-[10px] font-[550] text-emerald-700 bg-emerald-50 border border-emerald-200 px-xs py-[1px] rounded">
+                                  {Math.abs(Math.round(hoursDiff))} jam Sisa Kapasitas
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="font-mono text-[12px] font-[540] tabular-nums text-ink">
+                              {m.workload}j <span className="text-ink/35 font-normal">/ {m.capacity}j</span>
+                            </span>
                           </div>
-                        ) : (
-                          <div className="space-y-xs">
-                            <div className="flex justify-between items-center text-[12px]">
-                              <span className="font-[450] text-ink/60 flex items-center gap-xs">
-                                Beban Kerja
-                                {hoursDiff > 0 ? (
-                                  <span className="text-[10px] font-[550] text-red-600 bg-red-50 border border-red-200 px-xs py-[1px] rounded">
-                                    +{Math.round(hoursDiff)} jam Kelebihan
-                                  </span>
-                                ) : hoursDiff < 0 ? (
-                                  <span className="text-[10px] font-[550] text-emerald-700 bg-emerald-50 border border-emerald-200 px-xs py-[1px] rounded">
-                                    {Math.abs(Math.round(hoursDiff))} jam Sisa Kapasitas
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span className="font-mono text-[12px] font-[540] tabular-nums text-ink">
-                                {m.workload}j <span className="text-ink/35 font-normal">/ {m.capacity}j</span>
-                              </span>
-                            </div>
 
-                            <div className="w-full h-[8px] bg-hairline/50 rounded-full overflow-hidden relative">
-                              <div className="absolute inset-y-0 right-0 w-[1px] bg-ink/10" style={{ right: "0%" }} />
-                              <div
-                                className="h-full rounded-full transition-all duration-500"
-                                style={{
-                                  width: `${Math.min(m.utilization, 100)}%`,
-                                  backgroundColor: isOverload ? "#ef4444" : isOptimal ? "#10b981" : "#3b82f6",
-                                }}
-                              />
-                            </div>
+                          <div className="w-full h-[8px] bg-hairline/50 rounded-full overflow-hidden relative">
+                            <div className="absolute inset-y-0 right-0 w-[1px] bg-ink/10" style={{ right: "0%" }} />
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${Math.min(m.utilization, 100)}%`,
+                                backgroundColor: isOverload ? "#ef4444" : isOptimal ? "#10b981" : "#3b82f6",
+                              }}
+                            />
                           </div>
-                        )}
+                        </div>
 
                         {/* Subtasks Completion Bar */}
                         <div className="space-y-xs">
@@ -539,13 +514,15 @@ export default function IndividualMetricsPage() {
                         {/* Combined Performance Score Badge */}
                         {(() => {
                           const perf = getPerformanceDetail(m);
+                          const finalScore = m.performanceScore !== undefined ? m.performanceScore : perf.score;
+                          const breakdown = m.weightBreakdown || perf.weightBreakdown;
                           return (
                             <div className="text-[11px] font-mono text-ink/60 bg-surface-soft px-md py-xs rounded border border-hairline-soft flex items-center justify-between">
                               <span>Skor Performa Gabungan:</span>
                               <span className="font-[600] text-ink">
-                                {perf.score}%{" "}
+                                {finalScore} / 100{" "}
                                 <span className="text-[10px] text-ink/40 font-normal">
-                                  ({perf.weightBreakdown})
+                                  ({breakdown})
                                 </span>
                               </span>
                             </div>

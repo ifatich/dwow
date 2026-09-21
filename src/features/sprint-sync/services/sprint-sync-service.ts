@@ -472,7 +472,7 @@ export async function executeSprintSync(options: {
 
   const insertUserStmt = sqlite.prepare(`
     INSERT INTO users (id, nama, username, password_hash, role, department, capacity_hours_per_month, leave_days, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, 160, 0, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, 72, 0, ?, ?)
   `);
 
   for (const ld of theThreeLeads) {
@@ -590,6 +590,11 @@ export async function executeSprintSync(options: {
     VALUES (?, ?, ?, ?, ?, 1, ?, ?)
   `);
 
+  // Valid user IDs set for foreign key safety
+  const validUserIds = new Set(
+    (sqlite.prepare("SELECT id FROM users").all() as { id: string }[]).map((u) => u.id)
+  );
+
   const runSyncTransaction = sqlite.transaction(() => {
     const matchedSubtaskIds = new Set<string>();
     for (const [categoryName, taskMap] of categoryMap.entries()) {
@@ -598,7 +603,10 @@ export async function executeSprintSync(options: {
       const matchedMaster = masterCatMap.get(cleanCatName.toLowerCase());
 
       const catCode = matchedMaster?.code || cleanCatName.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || "PROJ";
-      const leadId = matchedMaster?.lead_id || null;
+      let leadId = matchedMaster?.lead_id || null;
+      if (leadId && !validUserIds.has(leadId)) {
+        leadId = null;
+      }
 
       // Jika kategori baru belum ada di master data, otomatis registrasikan
       if (!matchedMaster) {

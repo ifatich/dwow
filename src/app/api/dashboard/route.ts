@@ -203,8 +203,7 @@ export async function GET(request: NextRequest) {
     const workload = Array.from(workloadMap.entries())
       .map(([uname, hours]) => {
         const u = allUsers.find((x) => x.username === uname);
-        const monthlyCap = u?.capacityHoursPerMonth || 160;
-        const sprintCap = Math.round(monthlyCap / 2); // 80j/sprint
+        const sprintCap = u?.capacityHoursPerMonth || 72; // Kapasitas jam langsung per 2-week sprint
         return { username: uname, name: u?.nama || uname, role: u?.role || "staff", hours, capacity: sprintCap };
       })
       .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name));
@@ -255,11 +254,12 @@ export async function GET(request: NextRequest) {
       if (!assignedStaffByLead.has(a.lead_id)) {
         assignedStaffByLead.set(a.lead_id, []);
       }
+      const staffCap = a.capacity_hours_per_month || 72;
       assignedStaffByLead.get(a.lead_id)!.push({
         id: a.staff_id,
         name: a.nama,
         username: a.username,
-        capacity: Math.round((a.capacity_hours_per_month || 160) / 2),
+        capacity: staffCap,
       });
     }
 
@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
                   username: u.username,
                   name: u.nama,
                   hours: 0,
-                  capacity: Math.round((u.capacityHoursPerMonth || 160) / 2),
+                  capacity: u.capacityHoursPerMonth || 72,
                 };
                 current.hours += s.workloadHours || 0;
                 fallbackMemberMap.set(u.username, current);

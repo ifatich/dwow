@@ -44,8 +44,7 @@ export function aggregateStaffMetrics(
     const isLead = user.role === "lead";
 
     // 1. Calculate Base Capacity per Sprint & Dynamic Aggregated Capacity
-    const monthlyCapacity = Number(user.capacityHoursPerMonth) || 160;
-    const baseSprintCapacity = Math.round(monthlyCapacity / 2); // 80h per sprint base
+    const baseSprintCapacity = Number(user.capacityHoursPerMonth) || 72;
     const leaveDays = Number(user.leaveDays) || 0;
     const leaveHoursPerSprint = leaveDays * 8;
 

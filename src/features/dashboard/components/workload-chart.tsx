@@ -22,7 +22,7 @@ export default function WorkloadChart({ tasks, currentUser, maxCapacity }: Workl
     entries = wl
       .filter((w) => !currentUser || w.username === currentUser)
       .map((w) => {
-        const cap = w.capacity > 100 ? Math.round(w.capacity / 2) : (w.capacity || 80);
+        const cap = w.capacity || 72;
         return { username: w.username, name: w.name, role: w.role, hours: w.hours, capacity: cap };
       });
   } else {
@@ -45,7 +45,7 @@ export default function WorkloadChart({ tasks, currentUser, maxCapacity }: Workl
   }
 
   const totalHours = entries.reduce((s, e) => s + e.hours, 0);
-  const cap = maxCapacity || entries[0]?.capacity || 80;
+  const cap = maxCapacity || entries[0]?.capacity || 72;
 
   return (
     <div className="bg-surface-soft/60 rounded-lg border border-hairline-soft p-lg">

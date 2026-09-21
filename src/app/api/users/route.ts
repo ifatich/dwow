@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       passwordHash,
       role: role || "staff",
       department: department || null,
-      capacityHoursPerMonth: capacityHoursPerMonth || 160,
+      capacityHoursPerMonth: capacityHoursPerMonth || 72,
       createdAt: now,
       updatedAt: now,
     }).returning();

@@ -124,7 +124,7 @@ async function importSprint186() {
 
   const insertUserStmt = db.prepare(`
     INSERT INTO users (id, nama, username, password_hash, role, department, capacity_hours_per_month, leave_days, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, 160, 0, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, 72, 0, ?, ?)
   `);
 
   for (const m of teamMembers) {

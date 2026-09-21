@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       { header: "Nama", key: "name", width: 20 },
       { header: "Role", key: "role", width: 12 },
       { header: "Departemen", key: "department", width: 16 },
-      { header: "Kapasitas (j/bl)", key: "capacity", width: 15 },
+      { header: "Kapasitas (j/sprint)", key: "capacity", width: 18 },
       { header: "Beban (j)", key: "workload", width: 12 },
       { header: "Utilisasi", key: "utilization", width: 12 },
       { header: "Subtasks Done/Total", key: "subtasks", width: 18 },

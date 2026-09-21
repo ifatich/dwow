@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, sqlite } from "@/db";
 import { users, tasks, subtasks, subtaskAssignees, projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { calculateStaffPerformance, calculateLeadPerformance } from "@/lib/performance-calculator";
@@ -30,9 +30,9 @@ export async function GET(request: NextRequest) {
     const uniqueSprints = Array.from(new Set(allProjects.map((p) => p.sprint).filter(Boolean)));
     const totalSprintsCount = Math.max(1, uniqueSprints.length);
 
-    // Per-sprint base capacity (80h per sprint base minus leave days * 8)
+    // Per-sprint base capacity (72h default per 2-week sprint minus leave days * 8)
     const getSprintCapacity = (user: typeof allUsers[0]) => {
-      const basePerSprint = Math.round((user.capacityHoursPerMonth || 160) / 2); // 80h per sprint
+      const basePerSprint = user.capacityHoursPerMonth || 72;
       const leaveHours = (user.leaveDays || 0) * 8;
       return Math.max(10, basePerSprint - leaveHours);
     };
@@ -107,28 +107,50 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate Lead Review duties (reviewsTotal, reviewsDone, reviewsPending)
+    const teamAssignments = sqlite.prepare(`
+      SELECT lead_id, staff_id FROM lead_staff_assignments
+    `).all() as Array<{ lead_id: string; staff_id: string }>;
+
+    const staffByLeadMap = new Map<string, Set<string>>();
+    for (const ta of teamAssignments) {
+      if (!staffByLeadMap.has(ta.lead_id)) staffByLeadMap.set(ta.lead_id, new Set());
+      staffByLeadMap.get(ta.lead_id)!.add(ta.staff_id);
+    }
+
     const allSubtasksList = await db
       .select({
         id: subtasks.id,
         status: subtasks.status,
         projectId: tasks.projectId,
+        taskLeadId: tasks.leadId,
         projectSprint: projects.sprint,
+        projectLeadId: projects.leadId,
+        staffId: subtaskAssignees.staffId,
       })
       .from(subtasks)
       .leftJoin(tasks, eq(subtasks.taskId, tasks.id))
-      .leftJoin(projects, eq(tasks.projectId, projects.id));
+      .leftJoin(projects, eq(tasks.projectId, projects.id))
+      .leftJoin(subtaskAssignees, eq(subtaskAssignees.subtaskId, subtasks.id));
 
     const leadReviewMap: Record<string, { total: number; done: number; pending: number }> = {};
     for (const u of allUsers) {
       if (u.role === "lead") {
-        const ledProjects = allProjects.filter((p) => p.leadId === u.id);
-        const ledProjectIds = new Set(ledProjects.map((p) => p.id));
+        const managedStaffIds = staffByLeadMap.get(u.id) || new Set();
 
-        const ledSubtasks = allSubtasksList.filter((s) => {
-          if (sprintFilter !== "all" && s.projectSprint !== sprintFilter) return false;
-          return s.projectId && ledProjectIds.has(s.projectId);
-        });
+        const leadSubtaskMap = new Map<string, typeof allSubtasksList[0]>();
+        for (const s of allSubtasksList) {
+          if (sprintFilter !== "all" && s.projectSprint !== sprintFilter) continue;
 
+          const isLedProject = s.projectLeadId === u.id;
+          const isTaskLead = s.taskLeadId === u.id;
+          const isManagedStaff = Boolean(s.staffId && managedStaffIds.has(s.staffId) && s.staffId !== u.id);
+
+          if (isLedProject || isTaskLead || isManagedStaff) {
+            leadSubtaskMap.set(s.id, s);
+          }
+        }
+
+        const ledSubtasks = Array.from(leadSubtaskMap.values());
         const total = ledSubtasks.length;
         const pending = ledSubtasks.filter((s) => s.status === "review").length;
         const done = ledSubtasks.filter((s) => s.status === "done").length;
@@ -148,7 +170,7 @@ export async function GET(request: NextRequest) {
         name: d.name,
         role: u?.role || "staff",
         department: u?.department || "Engineering",
-        capacityHoursPerMonth: u?.capacityHoursPerMonth || 160,
+        capacityHoursPerMonth: u?.capacityHoursPerMonth || 72,
         leaveDays: u?.leaveDays || 0,
         workload: d.workload,
         subtasksDone: d.doneSubtasks,

@@ -38,7 +38,7 @@ export default function UsersPage() {
     password: "",
     role: "staff",
     department: "",
-    capacityWeekly: 40,
+    capacitySprint: 72,
     leadId: "",
   });
 
@@ -53,7 +53,7 @@ export default function UsersPage() {
         username: u.username,
         role: u.role,
         department: u.department,
-        capacity: u.capacityHoursPerMonth,
+        capacity: u.capacityHoursPerMonth || 72,
         assignedLeads: u.assignedLeads || [],
       })));
     } catch (err: any) {
@@ -70,23 +70,22 @@ export default function UsersPage() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const startEdit = (id: string, capacityMonthly: number) => {
+  const startEdit = (id: string, capacitySprint: number) => {
     setEditing(id);
-    setEditVal(String(Math.round(capacityMonthly / 4)));
+    setEditVal(String(capacitySprint > 0 ? capacitySprint : 72));
   };
 
   const saveEdit = async (userId: string) => {
     const val = parseInt(editVal, 10);
-    if (!isNaN(val) && val > 0 && val <= 80) {
-      const monthlyVal = val * 4;
+    if (!isNaN(val) && val > 0 && val <= 200) {
       try {
         await fetch(`/api/users/${userId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ capacityHoursPerMonth: monthlyVal }),
+          body: JSON.stringify({ capacityHoursPerMonth: val }),
         });
-        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, capacity: monthlyVal } : u));
-        showToast(`✅ Kapasitas diubah ke ${val} j/mg (${monthlyVal} j/bl)`);
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, capacity: val } : u));
+        showToast(`✅ Kapasitas diubah ke ${val} j/sprint`);
       } catch {
         showToast("❌ Gagal menyimpan");
       }
@@ -147,7 +146,7 @@ export default function UsersPage() {
           password: newUser.password,
           role: newUser.role,
           department: newUser.department || null,
-          capacityHoursPerMonth: newUser.capacityWeekly * 4,
+          capacityHoursPerMonth: newUser.capacitySprint,
         }),
       });
       if (!res.ok) {
@@ -172,7 +171,7 @@ export default function UsersPage() {
         password: "",
         role: "staff",
         department: "",
-        capacityWeekly: 40,
+        capacitySprint: 72,
         leadId: "",
       });
       showToast("✅ User berhasil ditambahkan");
@@ -181,12 +180,14 @@ export default function UsersPage() {
     }
   };
 
-  const handleDelete = async (userId: string, username: string) => {
-    if (!confirm(`Hapus user "${username}"?`)) return;
+  const handleDelete = async (userId: string, uname: string) => {
+    if (!confirm(`Hapus user "${uname}"?`)) return;
     try {
-      await fetch(`/api/users/${userId}`, { method: "DELETE" });
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
-      showToast("✅ User dihapus");
+      const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
+      if (res.ok) {
+        setUsers((prev) => prev.filter((u) => u.id !== userId));
+        showToast("✅ User dihapus");
+      }
     } catch {
       showToast("❌ Gagal menghapus");
     }
@@ -207,7 +208,7 @@ export default function UsersPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed top-[60px] right-4 z-50 bg-ink text-canvas rounded-lg px-lg py-sm text-[13px] font-[450] shadow-lg animate-in fade-in">
+        <div className="fixed bottom-lg right-lg z-50 bg-ink text-canvas text-[13px] px-lg py-sm rounded-lg shadow-lg font-[480]">
           {toast}
         </div>
       )}
@@ -240,7 +241,7 @@ export default function UsersPage() {
                   {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
                 <input placeholder="Department (opsional)" value={newUser.department} onChange={(e) => setNewUser({ ...newUser, department: e.target.value })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" />
-                <input placeholder="Kapasitas (jam/minggu)" type="number" value={newUser.capacityWeekly} onChange={(e) => setNewUser({ ...newUser, capacityWeekly: parseInt(e.target.value) || 0 })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" min={1} max={80} />
+                <input placeholder="Kapasitas (jam/sprint)" type="number" value={newUser.capacitySprint} onChange={(e) => setNewUser({ ...newUser, capacitySprint: parseInt(e.target.value) || 0 })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" min={1} max={160} />
                 {newUser.role === "staff" && (
                   <div className="relative flex items-center col-span-2">
                     <select
@@ -287,7 +288,7 @@ export default function UsersPage() {
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40">Username</th>
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40">Role</th>
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40">Lead Penanggung Jawab</th>
-                    <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40 text-right">Kapasitas (j/mg → j/bl)</th>
+                    <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40 text-right">Kapasitas (j/sprint)</th>
                     <th className="px-lg py-md text-[11px] font-[540] uppercase tracking-[0.6px] text-ink/40 text-right">Aksi</th>
                   </tr>
                 </thead>
@@ -373,16 +374,15 @@ export default function UsersPage() {
                           <div className="flex items-center justify-end gap-xs">
                             <input type="number" value={editVal} onChange={(e) => setEditVal(e.target.value)}
                               onKeyDown={(e) => { if (e.key === "Enter") saveEdit(user.id); if (e.key === "Escape") setEditing(null); }}
-                              className="w-[50px] h-[28px] rounded-md border border-primary/40 px-sm text-[13px] text-right font-[480] focus:outline-none focus:border-primary"
-                              min={1} max={80} autoFocus />
-                            <span className="text-[11px] text-ink/35">j/mg → {parseInt(editVal, 10) > 0 ? parseInt(editVal, 10) * 4 : 0} j/bl</span>
+                              className="w-[60px] h-[28px] rounded-md border border-primary/40 px-sm text-[13px] text-right font-[480] focus:outline-none focus:border-primary"
+                              min={1} max={160} autoFocus />
+                            <span className="text-[11px] text-ink/35">j/sprint</span>
                             <button onClick={() => saveEdit(user.id)} className="text-[11px] text-green-600 font-[480] cursor-pointer">✓</button>
                             <button onClick={() => setEditing(null)} className="text-[11px] text-red-500 font-[480] cursor-pointer">✕</button>
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-sm cursor-pointer group" onClick={() => startEdit(user.id, user.capacity)}>
-                            <span className="text-[14px] font-[480] tabular-nums text-ink/70">{Math.round(user.capacity / 4)} j/mg</span>
-                            <span className="text-[11px] font-[320] text-ink/35">({user.capacity} j/bl)</span>
+                            <span className="text-[14px] font-[480] tabular-nums text-ink/70">{user.capacity || 72} j/sprint</span>
                           </div>
                         )}
                       </td>
