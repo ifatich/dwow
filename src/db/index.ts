@@ -4,21 +4,50 @@ import path from "path";
 import fs from "fs";
 import * as schema from "./schema";
 
-// Resolve taskforge.db path safely across local & Vercel Serverless Function bundles
-let dbPath = path.join(process.cwd(), "taskforge.db");
+function getDatabasePath(): string {
+  const candidatePaths = [
+    path.join(process.cwd(), "taskforge.db"),
+    path.join(process.cwd(), ".next/server/taskforge.db"),
+    path.join(process.cwd(), ".next/standalone/taskforge.db"),
+    path.resolve("./taskforge.db"),
+  ];
 
-if (!fs.existsSync(dbPath)) {
-  const altPath = path.join(process.cwd(), ".next/standalone/taskforge.db");
-  if (fs.existsSync(altPath)) {
-    dbPath = altPath;
+  const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
+
+  if (isVercel) {
+    const tmpPath = "/tmp/taskforge.db";
+    
+    // Copy bundled db file to writable /tmp on Vercel AWS Lambda
+    if (!fs.existsSync(tmpPath)) {
+      for (const cand of candidatePaths) {
+        if (fs.existsSync(cand)) {
+          try {
+            fs.copyFileSync(cand, tmpPath);
+            return tmpPath;
+          } catch (err) {
+            console.error("Failed to copy db to /tmp:", err);
+          }
+        }
+      }
+    } else {
+      return tmpPath;
+    }
   }
+
+  for (const cand of candidatePaths) {
+    if (fs.existsSync(cand)) return cand;
+  }
+
+  return candidatePaths[0];
 }
+
+const dbPath = getDatabasePath();
+const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
 
 let sqliteInstance: Database.Database;
 
 try {
-  const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
-  sqliteInstance = new Database(dbPath, { readonly: isVercel });
+  sqliteInstance = new Database(dbPath);
   if (!isVercel) {
     sqliteInstance.pragma("journal_mode = WAL");
     sqliteInstance.pragma("foreign_keys = ON");
