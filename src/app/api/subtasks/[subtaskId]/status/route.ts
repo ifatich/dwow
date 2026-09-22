@@ -134,19 +134,8 @@ export const PATCH = withErrorHandler(async (
 
   // Validasi assignee atau role (Lead / Super Admin diperbolehkan)
   const session = await auth();
-  const userRole = (session?.user as any)?.role;
-  const isAssignee = targetSubtask.assignees.some(
-    (a) => a.toLowerCase() === staffName.toLowerCase()
-  );
-  
-  if (!isAssignee && userRole !== "lead" && userRole !== "super_admin") {
-    return forbidden(`Hanya assignee subtask (${targetSubtask.assignees.join(", ")}) atau Lead yang dapat mengubah status`);
-  }
+  let currentUserRole = (session?.user as any)?.role;
 
-  const oldStatus = targetSubtask.status;
-
-  // Aturan: Hanya Lead / Super Admin / Kadep / Kadiv yang dapat menyetujui subtask menjadi 'done'
-  let currentUserRole = userRole;
   if (!currentUserRole && staffName) {
     const [u] = await db
       .select({ role: users.role })
@@ -155,18 +144,31 @@ export const PATCH = withErrorHandler(async (
       .limit(1);
     currentUserRole = u?.role;
   }
+
+  const normalizedStaff = staffName.toLowerCase();
+  const isAssignee = targetSubtask.assignees.some(
+    (a) => a.toLowerCase() === normalizedStaff
+  );
+
   const isLeadOrAdmin =
     currentUserRole === "lead" ||
     currentUserRole === "kadep" ||
     currentUserRole === "kadiv" ||
     currentUserRole === "super_admin" ||
-    staffName.toLowerCase() === "admin";
+    normalizedStaff === "admin";
+
+  // Assignee, Lead/Admin, atau subtask tanpa assignee diperbolehkan mengubah status
+  if (!isAssignee && !isLeadOrAdmin && targetSubtask.assignees.length > 0) {
+    return forbidden(`Hanya assignee subtask (${targetSubtask.assignees.join(", ")}) atau Lead yang dapat mengubah status`);
+  }
+
+  const oldStatus = targetSubtask.status;
 
   if (newStatus === "done" && !isLeadOrAdmin) {
     return forbidden("Hanya Lead yang dapat menyetujui subtask menjadi Done.");
   }
 
-  if (newStatus === "done" && oldStatus !== "review" && currentUserRole !== "super_admin" && staffName.toLowerCase() !== "admin") {
+  if (newStatus === "done" && oldStatus !== "review" && currentUserRole !== "super_admin" && normalizedStaff !== "admin") {
     return badRequest("Subtask tidak dapat langsung diselesaikan. Subtask wajib melalui tahap Review terlebih dahulu.");
   }
 

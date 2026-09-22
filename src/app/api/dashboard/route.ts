@@ -51,13 +51,11 @@ export async function GET(request: NextRequest) {
 
     // Helper derive status from subtasks
     function deriveTaskStatus(tSubtasks: { status: string; done?: boolean }[], rawStatus: string): string {
-      if (tSubtasks.length === 0) {
-        return rawStatus === "to_do" ? "todo" : rawStatus === "in_progress" ? "in-progress" : rawStatus;
-      }
+      const normalizedRaw = rawStatus === "to_do" ? "todo" : rawStatus === "in_progress" ? "in-progress" : rawStatus;
+      if (tSubtasks.length === 0) return normalizedRaw;
       const allDone = tSubtasks.every((s) => s.status === "done" || s.done);
       if (allDone) return "done";
-      const anyStarted = tSubtasks.some((s) => s.status !== "to_do" && s.status !== "todo");
-      return anyStarted ? "in-progress" : "todo";
+      return normalizedRaw;
     }
 
     // Filter tasks to active sprint only and derive status from subtasks

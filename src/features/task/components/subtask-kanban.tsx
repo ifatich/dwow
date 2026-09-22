@@ -447,8 +447,20 @@ export default function SubtaskKanban({
     currentUser?.toLowerCase() === "admin" ||
     currentUser?.toLowerCase() === taskLead?.toLowerCase();
 
-  /** Ambil nama staff pertama dari assignee (proxy untuk current user) */
-  const getActingStaff = (subtask: Subtask): string => subtask.assignees[0] || "unknown";
+  /** Ambil nama staff efektif (currentUser > localStorage > assignee > admin) */
+  const getEffectiveUser = (subtask: Subtask): string => {
+    if (currentUser && currentUser.trim()) return currentUser.trim();
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("taskflow_user");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.username) return parsed.username;
+        }
+      } catch {}
+    }
+    return subtask.assignees[0] || "admin";
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const sub = subtasks.find((s) => s.id === event.active.id);
@@ -535,7 +547,7 @@ export default function SubtaskKanban({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: newStatus,
-          staffName: currentUser || getActingStaff(subtask),
+          staffName: getEffectiveUser(subtask),
           ...(evidence !== undefined && { evidence })
         }),
       });

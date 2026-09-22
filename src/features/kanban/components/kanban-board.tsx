@@ -86,7 +86,7 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
         if (Array.isArray(data)) {
           const derived = data.map((t: Task) => ({
             ...t,
-            status: deriveTaskStatus(t.subtasks || []) as TaskStatus,
+            status: (t.status || deriveTaskStatus(t.subtasks || [])) as TaskStatus,
           }));
           setTasks(derived);
         }
