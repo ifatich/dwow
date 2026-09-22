@@ -672,9 +672,17 @@ export async function executeSprintSync(options: {
           tasksUpdated++;
         } else {
           taskId = crypto.randomUUID();
+          
+          let currentTicketId = ticketId;
+          let offset = 0;
+          while (sqlite.prepare("SELECT 1 FROM tasks WHERE ticket_id = ?").get(currentTicketId)) {
+            offset++;
+            currentTicketId = `S${numOnly || "000"}-${catCode}-${String(taskCounter + offset).padStart(2, "0")}`;
+          }
+
           insertTaskStmt.run(
             taskId,
-            ticketId,
+            currentTicketId,
             projectName,
             `Task proyek ${projectName} di bawah kategori ${categoryName}`,
             "todo",

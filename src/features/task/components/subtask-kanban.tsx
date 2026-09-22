@@ -357,7 +357,7 @@ function computeTimeContributionsFromLogs(logs: ActivityLogEntry[], assignees: s
 
 interface SubtaskKanbanProps {
   subtasks: Subtask[];
-  onSubtasksChange: (subtasks: Subtask[]) => void;
+  onSubtasksChange: (subtasks: Subtask[] | ((prev: Subtask[]) => Subtask[])) => void;
   currentUser?: string;
   userRole?: string;
   taskLead?: string;
@@ -534,11 +534,11 @@ export default function SubtaskKanban({
       return;
     }
 
-    // Simpan state lama
-    const previousSubtasks = [...subtasks];
+    // Simpan state lama dari single item jika perlu revert
+    const subtaskBeforeUpdate = { ...subtask };
 
     // Optimistic UI update for smoothness (basic status change, no logs yet)
-    onSubtasksChange(subtasks.map((s) => s.id === subtaskId ? { ...s, status: newStatus } : s));
+    onSubtasksChange((prev) => prev.map((s) => s.id === subtaskId ? { ...s, status: newStatus } : s));
 
     // Save to backend API
     try {
@@ -564,7 +564,7 @@ export default function SubtaskKanban({
       const apiLogs: ActivityLogEntry[] = responseData?.activityLog || [];
       const apiTimeContribs: StaffTimeContribution[] = responseData?.timeContributions || [];
 
-      const updated = previousSubtasks.map((s) => {
+      onSubtasksChange((prev) => prev.map((s) => {
         if (s.id !== subtaskId) return s;
         // Prioritaskan timeContributions dari response (akurat dari DB, per assignee)
         const assigneeSet = new Set(s.assignees.map((a) => a.toLowerCase()));
@@ -583,14 +583,13 @@ export default function SubtaskKanban({
           activityLog: apiLogs.length > 0 ? apiLogs : s.activityLog,
           timeContributions: computedContributions,
         };
-      });
-      onSubtasksChange(updated);
+      }));
       notifyRealtimeSync();
     } catch (error: any) {
       console.error("Gagal update status subtask", error);
       showToast(`⛔ ${error.message}`);
-      // Revert to previous state
-      onSubtasksChange(previousSubtasks);
+      // Revert ONLY the specific subtask to its previous state
+      onSubtasksChange((prev) => prev.map((s) => s.id === subtaskId ? subtaskBeforeUpdate : s));
     }
   };
 
