@@ -180,6 +180,15 @@ async function main() {
     "staff_assignment_history",
   ];
 
+  console.log("\n🧹 Membersihkan tabel-tabel di Turso agar bersih dan persisten...");
+  for (let i = tables.length - 1; i >= 0; i--) {
+    try {
+      await turso.execute(`DELETE FROM ${tables[i]}`);
+    } catch {
+      // ignore
+    }
+  }
+
   console.log("\n🚚 Mulai mentransfer data dari taskforge.db ke Turso...");
 
   for (const tableName of tables) {
@@ -189,10 +198,10 @@ async function main() {
       continue;
     }
 
-    // Insert or replace each row
+    // Insert each row
     const columns = Object.keys(rows[0]);
     const placeholders = columns.map(() => "?").join(", ");
-    const insertSql = `INSERT OR REPLACE INTO ${tableName} (${columns.join(", ")}) VALUES (${placeholders})`;
+    const insertSql = `INSERT INTO ${tableName} (${columns.join(", ")}) VALUES (${placeholders})`;
 
     // Batch execute
     let inserted = 0;

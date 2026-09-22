@@ -111,18 +111,24 @@ export async function fetchSpreadsheetCSV(customUrl?: string): Promise<string> {
  */
 export function resolveHeaders(headerRow: string[]) {
   const normalized = headerRow.map((h) => h.toLowerCase().trim());
+  const findIdx = (exactList: string[]) => {
+    const exact = normalized.findIndex((h) => exactList.includes(h));
+    if (exact !== -1) return exact;
+    return normalized.findIndex((h) => exactList.some((k) => h.startsWith(k)));
+  };
+
   return {
-    catIdx: normalized.indexOf("kategori project"),
-    pIdx: normalized.indexOf("project"),
-    tIdx: normalized.indexOf("task detail"),
-    pengIdx: normalized.indexOf("pengerjaan"),
-    fIdx: normalized.indexOf("fitur"),
-    cIdx: normalized.indexOf("contributor"),
-    hIdx: normalized.indexOf("bobot (jam)"),
-    spIdx: normalized.indexOf("sprint"),
-    prIdx: normalized.indexOf("priority"),
-    nIdx: normalized.indexOf("notes / files"),
-    stIdx: normalized.indexOf("status"),
+    catIdx: findIdx(["kategori project", "kategori proyek", "kategori"]),
+    pIdx: findIdx(["project", "proyek", "nama project"]),
+    tIdx: findIdx(["task detail", "detail task", "subtask", "pekerjaan"]),
+    pengIdx: findIdx(["pengerjaan", "tipe pengerjaan"]),
+    fIdx: findIdx(["fitur", "feature"]),
+    cIdx: findIdx(["kontributor", "contributor", "pic", "assignee"]),
+    hIdx: findIdx(["bobot (jam)", "bobot", "jam", "hours", "workload"]),
+    spIdx: findIdx(["sprint"]),
+    prIdx: findIdx(["priority", "prioritas"]),
+    nIdx: findIdx(["notes / files", "notes", "catatan", "files"]),
+    stIdx: findIdx(["status"]),
   };
 }
 
@@ -855,48 +861,64 @@ export async function executeSprintSync(options: {
         }
 
         // Assignees
-        const seenStaff = new Set<string>();
+        const targetStaffIds: string[] = [];
         const assigneeList: { id: string; name: string }[] = [];
 
         for (const sr of rowsInSubtask) {
-          const contributorName = (sr[h.cIdx] || "").trim() || "Staff";
-          const staffUserId = userMap.get(contributorName.toLowerCase()) || userMap.get("arif")!;
-          totalWorkloadHours += workload;
+          const rawBobot = (sr[h.hIdx] || "").trim().replace(",", ".");
+          const rowWorkload = isNaN(parseFloat(rawBobot)) ? 0 : parseFloat(rawBobot);
+          totalWorkloadHours += rowWorkload;
 
-          if (!seenStaff.has(staffUserId)) {
-            seenStaff.add(staffUserId);
-            assigneeList.push({ id: staffUserId, name: contributorName });
-
-            const assKey = `${subtaskId}___${staffUserId}`;
-            if (!existingAssigneesSet.has(assKey)) {
-              existingAssigneesSet.add(assKey);
-              batchStatements.push({
-                sql: "INSERT INTO subtask_assignees (subtask_id, staff_id, assigned_at) VALUES (?, ?, ?)",
-                args: [subtaskId, staffUserId, now],
-              });
-            }
-
-            if (anyDone) {
-              batchStatements.push({
-                sql: "INSERT INTO time_contributions (subtask_id, staff_id, hours) VALUES (?, ?, ?)",
-                args: [subtaskId, staffUserId, workload],
-              });
+          const contributorName = (sr[h.cIdx] || "").trim();
+          if (contributorName) {
+            const staffUserId = userMap.get(contributorName.toLowerCase());
+            if (staffUserId && !targetStaffIds.includes(staffUserId)) {
+              targetStaffIds.push(staffUserId);
+              assigneeList.push({ id: staffUserId, name: contributorName });
             }
           }
         }
 
+        // Always sync subtask_assignees to accurately reflect the spreadsheet contributors
         batchStatements.push({
-          sql: `INSERT INTO staff_assignment_history (id, subtask_id, previous_assignees, new_assignees, changed_by, change_type, reason, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [crypto.randomUUID(), subtaskId, null, JSON.stringify(assigneeList.map((a) => a.name)), performedBy || "Sprint Sync Engine", "added", `Sinkronisasi otomatis ${sprintLabel}`, now],
+          sql: "DELETE FROM subtask_assignees WHERE subtask_id = ?",
+          args: [subtaskId],
         });
 
-        const primaryStaffId = assigneeList[0]?.id || userMap.get("arif")!;
-        batchStatements.push({
-          sql: `INSERT INTO activity_logs (id, subtask_id, task_id, user_id, action, timestamp, duration_hours, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [crypto.randomUUID(), subtaskId, taskId, primaryStaffId, anyDone ? "completed" : "created", now, anyDone ? workload : 0, `Subtask '${subtaskTitle}' disinkronkan dari Google Sheets`],
-        });
+        for (const staffId of targetStaffIds) {
+          batchStatements.push({
+            sql: "INSERT INTO subtask_assignees (subtask_id, staff_id, assigned_at) VALUES (?, ?, ?)",
+            args: [subtaskId, staffId, now],
+          });
+        }
+
+        if (anyDone) {
+          batchStatements.push({
+            sql: "DELETE FROM time_contributions WHERE subtask_id = ?",
+            args: [subtaskId],
+          });
+          for (const staffId of targetStaffIds) {
+            batchStatements.push({
+              sql: "INSERT INTO time_contributions (subtask_id, staff_id, hours) VALUES (?, ?, ?)",
+              args: [subtaskId, staffId, workload],
+            });
+          }
+        }
+
+        if (!existingSubtask) {
+          batchStatements.push({
+            sql: `INSERT INTO staff_assignment_history (id, subtask_id, previous_assignees, new_assignees, changed_by, change_type, reason, created_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [crypto.randomUUID(), subtaskId, null, JSON.stringify(assigneeList.map((a) => a.name)), performedBy || "Sprint Sync Engine", "added", `Sinkronisasi otomatis ${sprintLabel}`, now],
+          });
+
+          const primaryStaffId = targetStaffIds[0] || userMap.get("arif")!;
+          batchStatements.push({
+            sql: `INSERT INTO activity_logs (id, subtask_id, task_id, user_id, action, timestamp, duration_hours, note)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [crypto.randomUUID(), subtaskId, taskId, primaryStaffId, anyDone ? "completed" : "created", now, anyDone ? workload : 0, `Subtask '${subtaskTitle}' disinkronkan dari Google Sheets`],
+          });
+        }
       }
 
       taskCounter++;
