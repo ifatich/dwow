@@ -1,3 +1,20 @@
+export interface AddedItemTask {
+  id?: string;
+  ticketId?: string;
+  title: string;
+  categoryName: string;
+  pic: string;
+}
+
+export interface AddedItemSubtask {
+  id?: string;
+  title: string;
+  taskTitle: string;
+  categoryName: string;
+  workloadHours: number;
+  assignees: string[];
+}
+
 export interface AvailableSprint {
   identifier: string; // e.g. "186"
   label: string; // e.g. "Sprint 186"
@@ -11,6 +28,7 @@ export interface SprintSyncPreview {
   totalRawRows: number;
   excludedTentativeZero: number;
   validRows: number;
+  uniqueSubtasksCount: number;
   projectsCount: number;
   tasksCount: number;
   totalWorkloadHours: number;
@@ -30,6 +48,10 @@ export interface SprintSyncPreview {
     newSubtasksCount: number;
     preservedInProgressSubtasks: number;
   };
+  detectedNewItems?: {
+    newTasks: AddedItemTask[];
+    newSubtasks: AddedItemSubtask[];
+  };
   warnings?: string[];
 }
 
@@ -46,4 +68,8 @@ export interface SprintSyncResult {
   subtasksUpdated: number;
   totalWorkloadHours: number;
   syncedAt: string;
+  addedItems?: {
+    newTasks: AddedItemTask[];
+    newSubtasks: AddedItemSubtask[];
+  };
 }

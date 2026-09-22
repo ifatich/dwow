@@ -1,8 +1,14 @@
-import { sqlite } from "@/db";
+import { client, sqlite } from "@/db";
 import bcrypt from "bcryptjs";
 import fs from "fs";
 import path from "path";
-import { AvailableSprint, SprintSyncPreview, SprintSyncResult } from "../types";
+import {
+  AvailableSprint,
+  SprintSyncPreview,
+  SprintSyncResult,
+  AddedItemTask,
+  AddedItemSubtask,
+} from "../types";
 
 const DEFAULT_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/1IE1qISarDluXe7ppWFgesctPTLL7TCDAzLFwAotlSzc/export?format=csv&gid=677490633";
@@ -100,34 +106,23 @@ export async function fetchSpreadsheetCSV(customUrl?: string): Promise<string> {
   throw new Error("Gagal mengambil data dari Google Sheets dan tidak ada cache lokal data-scrape.csv.");
 }
 
-interface ParsedHeaderIndices {
-  spIdx: number;
-  catIdx: number;
-  pIdx: number;
-  tIdx: number;
-  fIdx: number;
-  pengIdx: number;
-  prIdx: number;
-  cIdx: number;
-  hIdx: number;
-  nIdx: number;
-  stIdx: number;
-}
-
-function resolveHeaders(headerRow: string[]): ParsedHeaderIndices {
-  const normalized = headerRow.map((h) => h.trim());
+/**
+ * Find header indexes accurately from header row.
+ */
+export function resolveHeaders(headerRow: string[]) {
+  const normalized = headerRow.map((h) => h.toLowerCase().trim());
   return {
-    spIdx: normalized.indexOf("Sprint"),
-    catIdx: normalized.indexOf("Kategori Project"),
-    pIdx: normalized.indexOf("Project"),
-    tIdx: normalized.indexOf("Task Detail"),
-    fIdx: normalized.indexOf("Fitur"),
-    pengIdx: normalized.indexOf("Pengerjaan"),
-    prIdx: normalized.indexOf("Priority"),
-    cIdx: normalized.indexOf("Kontributor"),
-    hIdx: normalized.indexOf("Bobot (Jam)"),
-    nIdx: normalized.indexOf("Notes / Files"),
-    stIdx: normalized.indexOf("Status"),
+    catIdx: normalized.indexOf("kategori project"),
+    pIdx: normalized.indexOf("project"),
+    tIdx: normalized.indexOf("task detail"),
+    pengIdx: normalized.indexOf("pengerjaan"),
+    fIdx: normalized.indexOf("fitur"),
+    cIdx: normalized.indexOf("contributor"),
+    hIdx: normalized.indexOf("bobot (jam)"),
+    spIdx: normalized.indexOf("sprint"),
+    prIdx: normalized.indexOf("priority"),
+    nIdx: normalized.indexOf("notes / files"),
+    stIdx: normalized.indexOf("status"),
   };
 }
 
@@ -153,11 +148,15 @@ export async function getAvailableSprints(customUrl?: string): Promise<Available
     }
   }
 
-  // Check which sprints are in SQLite database
-  const dbSprints = sqlite
-    .prepare("SELECT DISTINCT sprint FROM projects")
-    .all() as { sprint: string }[];
-  const dbSprintSet = new Set(dbSprints.map((s) => s.sprint.toLowerCase().trim()));
+  // Check which sprints are in database (via client for Turso / local compatibility)
+  let dbSprintSet = new Set<string>();
+  try {
+    const dbSprintsRes = await client.execute("SELECT DISTINCT sprint FROM projects");
+    const dbSprints = dbSprintsRes.rows as unknown as { sprint: string }[];
+    dbSprintSet = new Set(dbSprints.map((s) => (s.sprint || "").toLowerCase().trim()));
+  } catch (err) {
+    console.warn("Could not query projects from client:", err);
+  }
 
   const result: AvailableSprint[] = [];
   for (const [key, count] of sprintCountMap.entries()) {
@@ -186,7 +185,7 @@ export async function getAvailableSprints(customUrl?: string): Promise<Available
 }
 
 /**
- * Preview sprint sync diff before executing.
+ * Preview dry-run for a specific sprint.
  */
 export async function previewSprintSync(options: {
   sprintIdentifier: string;
@@ -302,37 +301,139 @@ export async function previewSprintSync(options: {
     });
   }
 
-  // Database Delta Check for THIS SPRINT ONLY (multi-sprint retention)
-  const existingProjects = sqlite
-    .prepare("SELECT id, title FROM projects WHERE sprint = ?")
-    .all(sprintLabel) as { id: string; title: string }[];
-  const existingProjectIds = existingProjects.map((p) => p.id);
+  // Database Delta Check for THIS SPRINT ONLY (multi-sprint retention via client)
+  let existingProjects: { id: string; title: string }[] = [];
+  try {
+    const existingProjectsRes = await client.execute({
+      sql: "SELECT id, title FROM projects WHERE sprint = ?",
+      args: [sprintLabel],
+    });
+    existingProjects = existingProjectsRes.rows as unknown as { id: string; title: string }[];
+  } catch {
+    if (sqlite) {
+      existingProjects = sqlite
+        .prepare("SELECT id, title FROM projects WHERE sprint = ?")
+        .all(sprintLabel) as { id: string; title: string }[];
+    }
+  }
 
-  let existingTasksCount = 0;
-  let existingSubtasksCount = 0;
+  const existingProjectIds = existingProjects.map((p) => p.id);
+  const existingProjectMap = new Map<string, string>();
+  for (const p of existingProjects) {
+    existingProjectMap.set(p.title.toLowerCase().trim(), p.id);
+  }
+
+  let existingTasks: { id: string; title: string; project_id: string }[] = [];
+  let existingSubtasks: { id: string; title: string; status: string; task_id: string; workload_hours: number }[] = [];
   let preservedInProgressSubtasks = 0;
 
   if (existingProjectIds.length > 0) {
     const placeholders = existingProjectIds.map(() => "?").join(",");
-    const existingTasks = sqlite
-      .prepare(`SELECT id, title FROM tasks WHERE project_id IN (${placeholders})`)
-      .all(...existingProjectIds) as { id: string; title: string }[];
-    existingTasksCount = existingTasks.length;
+    try {
+      const existingTasksRes = await client.execute({
+        sql: `SELECT id, title, project_id FROM tasks WHERE project_id IN (${placeholders})`,
+        args: existingProjectIds,
+      });
+      existingTasks = existingTasksRes.rows as unknown as { id: string; title: string; project_id: string }[];
+    } catch {
+      if (sqlite) {
+        existingTasks = sqlite
+          .prepare(`SELECT id, title, project_id FROM tasks WHERE project_id IN (${placeholders})`)
+          .all(...existingProjectIds) as { id: string; title: string; project_id: string }[];
+      }
+    }
 
     const taskIds = existingTasks.map((t) => t.id);
     if (taskIds.length > 0) {
       const taskPlaceholders = taskIds.map(() => "?").join(",");
-      const existingSubtasks = sqlite
-        .prepare(
-          `SELECT id, title, status FROM subtasks WHERE task_id IN (${taskPlaceholders})`
-        )
-        .all(...taskIds) as { id: string; title: string; status: string }[];
-      existingSubtasksCount = existingSubtasks.length;
+      try {
+        const existingSubtasksRes = await client.execute({
+          sql: `SELECT id, title, status, task_id, workload_hours FROM subtasks WHERE task_id IN (${taskPlaceholders})`,
+          args: taskIds,
+        });
+        existingSubtasks = existingSubtasksRes.rows as unknown as {
+          id: string;
+          title: string;
+          status: string;
+          task_id: string;
+          workload_hours: number;
+        }[];
+      } catch {
+        if (sqlite) {
+          existingSubtasks = sqlite
+            .prepare(
+              `SELECT id, title, status, task_id, workload_hours FROM subtasks WHERE task_id IN (${taskPlaceholders})`
+            )
+            .all(...taskIds) as any[];
+        }
+      }
 
-      // Check how many have progress already started (Smart Merge protection)
       for (const st of existingSubtasks) {
         if (st.status === "in_progress" || st.status === "review" || st.status === "done") {
           preservedInProgressSubtasks++;
+        }
+      }
+    }
+  }
+
+  // Pre-calculate detected new tasks and subtasks for detailed preview
+  const detectedNewTasks: AddedItemTask[] = [];
+  const detectedNewSubtasks: AddedItemSubtask[] = [];
+
+  const existingTaskKeySet = new Set<string>();
+  for (const t of existingTasks) {
+    existingTaskKeySet.add(`${t.project_id}___${t.title.toLowerCase().trim()}`);
+  }
+
+  for (const [catName, taskMap] of categoryMap.entries()) {
+    const pId = existingProjectMap.get(catName.toLowerCase().trim());
+    for (const [projectName, sRows] of taskMap.entries()) {
+      const isTaskExisting = Boolean(pId && existingTaskKeySet.has(`${pId}___${projectName.toLowerCase().trim()}`));
+      if (!isTaskExisting) {
+        detectedNewTasks.push({
+          title: projectName,
+          categoryName: catName,
+          pic: sRows[0]?.[h.cIdx] || "Tim",
+        });
+      }
+
+      // Group subtasks in sheet
+      const subtaskGroupMap = new Map<string, string[][]>();
+      for (const sr of sRows) {
+        const rawTitle = sr[h.tIdx] || projectName;
+        const title = rawTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
+        const rawB = (sr[h.hIdx] || "").trim().replace(",", ".");
+        const workload = isNaN(parseFloat(rawB)) ? 0 : parseFloat(rawB);
+        const subKey = `${title}__${workload}`;
+        if (!subtaskGroupMap.has(subKey)) subtaskGroupMap.set(subKey, []);
+        subtaskGroupMap.get(subKey)!.push(sr);
+      }
+
+      for (const [, rowsInSub] of subtaskGroupMap.entries()) {
+        const firstSr = rowsInSub[0];
+        const rawTitle = firstSr[h.tIdx] || projectName;
+        const title = rawTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
+        const rawB = (firstSr[h.hIdx] || "").trim().replace(",", ".");
+        const workload = isNaN(parseFloat(rawB)) ? 0 : parseFloat(rawB);
+
+        const matchedTask = existingTasks.find(
+          (t) => pId === t.project_id && t.title.toLowerCase().trim() === projectName.toLowerCase().trim()
+        );
+        const isSubExisting = Boolean(
+          matchedTask &&
+          existingSubtasks.some(
+            (st) => st.task_id === matchedTask.id && st.title.toLowerCase().trim() === title.toLowerCase().trim()
+          )
+        );
+
+        if (!isSubExisting) {
+          detectedNewSubtasks.push({
+            title,
+            taskTitle: projectName,
+            categoryName: catName,
+            workloadHours: workload,
+            assignees: Array.from(new Set(rowsInSub.map((r) => (r[h.cIdx] || "").trim()).filter(Boolean))),
+          });
         }
       }
     }
@@ -356,6 +457,7 @@ export async function previewSprintSync(options: {
     totalRawRows,
     excludedTentativeZero,
     validRows: validRows.length,
+    uniqueSubtasksCount: totalUniqueSubtasks,
     projectsCount: categoryMap.size,
     tasksCount,
     totalWorkloadHours: Math.round(totalWorkloadHours * 10) / 10,
@@ -364,11 +466,15 @@ export async function previewSprintSync(options: {
     delta: {
       existingProjectsInSprint: existingProjects.length,
       newProjectsCount,
-      existingTasksInSprint: existingTasksCount,
-      newTasksCount: Math.max(0, tasksCount - existingTasksCount),
-      existingSubtasksInSprint: existingSubtasksCount,
-      newSubtasksCount: Math.max(0, totalUniqueSubtasks - existingSubtasksCount),
+      existingTasksInSprint: existingTasks.length,
+      newTasksCount: Math.max(0, tasksCount - existingTasks.length),
+      existingSubtasksInSprint: existingSubtasks.length,
+      newSubtasksCount: Math.max(0, totalUniqueSubtasks - existingSubtasks.length),
       preservedInProgressSubtasks,
+    },
+    detectedNewItems: {
+      newTasks: detectedNewTasks,
+      newSubtasks: detectedNewSubtasks,
     },
   };
 }
@@ -377,6 +483,7 @@ export async function previewSprintSync(options: {
  * Execute atomic smart sync for the specified sprint.
  * Multi-sprint retention: leaves all other sprints untouched.
  * Smart merge: preserves in_progress, review, done status on existing subtasks.
+ * Fully compatible with Turso (LibSQL) Cloud and local SQLite.
  */
 export async function executeSprintSync(options: {
   sprintIdentifier: string;
@@ -451,16 +558,17 @@ export async function executeSprintSync(options: {
 
   const now = new Date().toISOString();
 
-  // Ensure default users & leads exist
-  const existingUsers = sqlite
-    .prepare("SELECT id, username, nama, role FROM users")
-    .all() as { id: string; username: string; nama: string; role: string }[];
-  const userMap = new Map<string, string>(); // lowercase username/name -> userId
+  // 1. Fetch existing users from client
+  const usersRes = await client.execute("SELECT id, username, nama, role FROM users");
+  const existingUsers = usersRes.rows as unknown as { id: string; username: string; nama: string; role: string }[];
+  const userMap = new Map<string, string>();
 
   for (const u of existingUsers) {
     userMap.set(u.username.toLowerCase(), u.id);
     userMap.set(u.nama.toLowerCase(), u.id);
   }
+
+  const batchStatements: { sql: string; args: any[] }[] = [];
 
   // Ensure the 3 leads exist (Arif, Cheppy, Ganda)
   const defaultLeadHash = await bcrypt.hash("lead123", 10);
@@ -470,15 +578,14 @@ export async function executeSprintSync(options: {
     { username: "ganda", nama: "Ganda", role: "lead", dept: "Digital Project" },
   ];
 
-  const insertUserStmt = sqlite.prepare(`
-    INSERT INTO users (id, nama, username, password_hash, role, department, capacity_hours_per_month, leave_days, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, 72, 0, ?, ?)
-  `);
-
   for (const ld of theThreeLeads) {
     if (!userMap.has(ld.username.toLowerCase())) {
       const id = crypto.randomUUID();
-      insertUserStmt.run(id, ld.nama, ld.username, defaultLeadHash, ld.role, ld.dept, now, now);
+      batchStatements.push({
+        sql: `INSERT INTO users (id, nama, username, password_hash, role, department, capacity_hours_per_month, leave_days, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, 72, 0, ?, ?)`,
+        args: [id, ld.nama, ld.username, defaultLeadHash, ld.role, ld.dept, now, now],
+      });
       userMap.set(ld.username.toLowerCase(), id);
       userMap.set(ld.nama.toLowerCase(), id);
     }
@@ -491,22 +598,66 @@ export async function executeSprintSync(options: {
     if (rawContributor && !userMap.has(rawContributor.toLowerCase())) {
       const id = crypto.randomUUID();
       const sanitizedUsername = rawContributor.toLowerCase().replace(/[^a-z0-9]/g, "");
-      insertUserStmt.run(
-        id,
-        rawContributor,
-        sanitizedUsername || `staff_${id.slice(0, 6)}`,
-        defaultStaffHash,
-        "staff",
-        "Digital & Product Team",
-        now,
-        now
-      );
+      batchStatements.push({
+        sql: `INSERT INTO users (id, nama, username, password_hash, role, department, capacity_hours_per_month, leave_days, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, 72, 0, ?, ?)`,
+        args: [id, rawContributor, sanitizedUsername || `staff_${id.slice(0, 6)}`, defaultStaffHash, "staff", "Digital & Product Team", now, now],
+      });
       userMap.set(rawContributor.toLowerCase(), id);
       userMap.set((sanitizedUsername || "").toLowerCase(), id);
     }
   }
 
-  // Begin Transaction for Multi-Sprint Safe Smart Sync
+  // 2. Fetch master categories
+  const masterCatRes = await client.execute("SELECT id, name, code, lead_id FROM project_categories");
+  const masterCategories = masterCatRes.rows as unknown as Array<{ id: string; name: string; code: string; lead_id: string | null }>;
+  const masterCatMap = new Map(masterCategories.map((c) => [c.name.toLowerCase().trim(), c]));
+
+  // 3. Fetch existing projects, tasks, and subtasks for this sprint from client
+  const existingProjRes = await client.execute({
+    sql: "SELECT id, title, lead_id FROM projects WHERE sprint = ?",
+    args: [sprintLabel],
+  });
+  const existingProjects = existingProjRes.rows as unknown as Array<{ id: string; title: string; lead_id: string }>;
+  const existingProjectMap = new Map(existingProjects.map((p) => [p.title.toLowerCase().trim(), p]));
+
+  const existingProjIds = existingProjects.map((p) => p.id);
+  let existingTasks: Array<{ id: string; ticket_id: string; title: string; status: string; project_id: string }> = [];
+  let existingSubtasks: Array<{ id: string; task_id: string; title: string; status: string; workload_hours: number; done: number }> = [];
+
+  if (existingProjIds.length > 0) {
+    const pHolders = existingProjIds.map(() => "?").join(",");
+    const tRes = await client.execute({
+      sql: `SELECT id, ticket_id, title, status, project_id FROM tasks WHERE project_id IN (${pHolders})`,
+      args: existingProjIds,
+    });
+    existingTasks = tRes.rows as unknown as any[];
+
+    const tIds = existingTasks.map((t) => t.id);
+    if (tIds.length > 0) {
+      const sHolders = tIds.map(() => "?").join(",");
+      const sRes = await client.execute({
+        sql: `SELECT id, task_id, title, status, workload_hours, done FROM subtasks WHERE task_id IN (${sHolders})`,
+        args: tIds,
+      });
+      existingSubtasks = sRes.rows as unknown as any[];
+    }
+  }
+
+  // Existing assignees lookup
+  let existingAssigneesSet = new Set<string>();
+  try {
+    const assRes = await client.execute("SELECT subtask_id, staff_id FROM subtask_assignees");
+    for (const a of assRes.rows as unknown as { subtask_id: string; staff_id: string }[]) {
+      existingAssigneesSet.add(`${a.subtask_id}___${a.staff_id}`);
+    }
+  } catch {}
+
+  // Existing ticket IDs
+  const allTicketsRes = await client.execute("SELECT ticket_id FROM tasks");
+  const existingTicketIds = new Set((allTicketsRes.rows as unknown as { ticket_id: string }[]).map((t) => t.ticket_id));
+
+  // Tracking counts and added items
   let projectsCreated = 0;
   let projectsUpdated = 0;
   let tasksCreated = 0;
@@ -516,337 +667,267 @@ export async function executeSprintSync(options: {
   let subtasksUpdated = 0;
   let totalWorkloadHours = 0;
 
-  const findProjectStmt = sqlite.prepare(
-    "SELECT id, title, lead_id FROM projects WHERE title = ? AND sprint = ?"
-  );
-  const insertProjectStmt = sqlite.prepare(`
-    INSERT INTO projects (id, title, description, sprint, lead_id, sprint_cutoff, is_archived, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
-  `);
-  const updateProjectStmt = sqlite.prepare(`
-    UPDATE projects SET description = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?
-  `);
+  const addedNewTasks: AddedItemTask[] = [];
+  const addedNewSubtasks: AddedItemSubtask[] = [];
+  const matchedSubtaskIds = new Set<string>();
 
-  const findTaskStmt = sqlite.prepare(
-    "SELECT id, ticket_id, title, status, total_actual_hours FROM tasks WHERE title = ? AND project_id = ?"
-  );
-  const insertTaskStmt = sqlite.prepare(`
-    INSERT INTO tasks (id, ticket_id, title, description, status, priority, pic_name, lead_id, project_id, total_actual_hours, deadline, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const updateTaskStmt = sqlite.prepare(`
-    UPDATE tasks SET pic_name = ?, priority = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?
-  `);
+  for (const [categoryName, taskMap] of categoryMap.entries()) {
+    let projectId: string;
+    const cleanCatName = categoryName.trim();
+    const matchedMaster = masterCatMap.get(cleanCatName.toLowerCase());
 
-  const findSubtaskByTaskAndTitleStmt = sqlite.prepare(`
-    SELECT id, title, status, workload_hours, done FROM subtasks WHERE title = ? AND task_id = ?
-  `);
-  const insertSubtaskStmt = sqlite.prepare(`
-    INSERT INTO subtasks (id, task_id, title, description, goals, done, status, workload_hours, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const updateSubtaskStmt = sqlite.prepare(`
-    UPDATE subtasks SET description = ?, goals = ?, workload_hours = ?, updated_at = ? WHERE id = ?
-  `);
-  const updateSubtaskDoneStmt = sqlite.prepare(`
-    UPDATE subtasks SET done = 1, status = 'done', workload_hours = ?, updated_at = ? WHERE id = ?
-  `);
+    const catCode = matchedMaster?.code || cleanCatName.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || "PROJ";
+    const leadId = matchedMaster?.lead_id || null;
 
-  const insertSubtaskAssigneeStmt = sqlite.prepare(`
-    INSERT INTO subtask_assignees (subtask_id, staff_id, assigned_at)
-    VALUES (?, ?, ?)
-  `);
-  const findAssigneeStmt = sqlite.prepare(
-    "SELECT id FROM subtask_assignees WHERE subtask_id = ? AND staff_id = ?"
-  );
+    if (!matchedMaster) {
+      const newCatId = crypto.randomUUID();
+      batchStatements.push({
+        sql: `INSERT INTO project_categories (id, name, code, lead_id, description, is_active, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+        args: [newCatId, cleanCatName, catCode, null, `Otomatis terdaftar dari sinkronisasi ${sprintLabel}`, now, now],
+      });
+      masterCatMap.set(cleanCatName.toLowerCase(), {
+        id: newCatId,
+        name: cleanCatName,
+        code: catCode,
+        lead_id: null,
+      });
+    }
 
-  const insertAssignmentHistoryStmt = sqlite.prepare(`
-    INSERT INTO staff_assignment_history (id, subtask_id, previous_assignees, new_assignees, changed_by, change_type, reason, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+    // 1. Projects (Category level)
+    const existingProject = existingProjectMap.get(cleanCatName.toLowerCase());
 
-  const insertActivityLogStmt = sqlite.prepare(`
-    INSERT INTO activity_logs (id, subtask_id, task_id, user_id, action, timestamp, duration_hours, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+    if (existingProject) {
+      projectId = existingProject.id;
+      batchStatements.push({
+        sql: "UPDATE projects SET description = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
+        args: [`Kategori Project: ${categoryName} — ${sprintLabel}`, leadId, now, projectId],
+      });
+      projectsUpdated++;
+    } else {
+      projectId = crypto.randomUUID();
+      batchStatements.push({
+        sql: `INSERT INTO projects (id, title, description, sprint, lead_id, sprint_cutoff, is_archived, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+        args: [projectId, categoryName, `Kategori Project: ${categoryName} — ${sprintLabel}`, sprintLabel, leadId, "2026-10-02T23:59:59.000Z", now, now],
+      });
+      existingProjectMap.set(cleanCatName.toLowerCase(), { id: projectId, title: categoryName, lead_id: leadId || "" });
+      projectsCreated++;
+    }
 
-  const insertTimeContribStmt = sqlite.prepare(`
-    INSERT INTO time_contributions (subtask_id, staff_id, hours)
-    VALUES (?, ?, ?)
-  `);
+    let taskCounter = 1;
+    for (const [projectName, subtaskRows] of taskMap.entries()) {
+      let taskId: string;
+      const firstRow = subtaskRows[0];
+      const pic = firstRow[h.cIdx] || "Tim";
+      const priorityRaw = (firstRow[h.prIdx] || "medium").toLowerCase();
+      const priority = ["low", "medium", "high", "urgent"].includes(priorityRaw) ? priorityRaw : "medium";
+      const ticketId = `S${numOnly || "000"}-${catCode}-${String(taskCounter).padStart(2, "0")}`;
 
-  const findTimeContribStmt = sqlite.prepare(
-    "SELECT id FROM time_contributions WHERE subtask_id = ? AND staff_id = ?"
-  );
+      // 2. Tasks (Project column in sheet)
+      const existingTask = existingTasks.find(
+        (t) => t.project_id === projectId && t.title.toLowerCase().trim() === projectName.toLowerCase().trim()
+      );
 
-  // Ambil data master project_categories
-  const masterCategories = sqlite.prepare(
-    "SELECT id, name, code, lead_id FROM project_categories"
-  ).all() as Array<{ id: string; name: string; code: string; lead_id: string | null }>;
-  const masterCatMap = new Map(masterCategories.map((c) => [c.name.toLowerCase().trim(), c]));
+      if (existingTask) {
+        taskId = existingTask.id;
+        batchStatements.push({
+          sql: "UPDATE tasks SET pic_name = ?, priority = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
+          args: [pic, priority, leadId, now, taskId],
+        });
+        tasksUpdated++;
+      } else {
+        taskId = crypto.randomUUID();
+        let currentTicketId = ticketId;
+        let offset = 0;
+        while (existingTicketIds.has(currentTicketId)) {
+          offset++;
+          currentTicketId = `S${numOnly || "000"}-${catCode}-${String(taskCounter + offset).padStart(2, "0")}`;
+        }
+        existingTicketIds.add(currentTicketId);
 
-  const insertMasterCatStmt = sqlite.prepare(`
-    INSERT INTO project_categories (id, name, code, lead_id, description, is_active, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-  `);
-
-  // Valid user IDs set for foreign key safety
-  const validUserIds = new Set(
-    (sqlite.prepare("SELECT id FROM users").all() as { id: string }[]).map((u) => u.id)
-  );
-
-  const runSyncTransaction = sqlite.transaction(() => {
-    const matchedSubtaskIds = new Set<string>();
-    for (const [categoryName, taskMap] of categoryMap.entries()) {
-      let projectId: string;
-      const cleanCatName = categoryName.trim();
-      const matchedMaster = masterCatMap.get(cleanCatName.toLowerCase());
-
-      const catCode = matchedMaster?.code || cleanCatName.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || "PROJ";
-      let leadId = matchedMaster?.lead_id || null;
-      if (leadId && !validUserIds.has(leadId)) {
-        leadId = null;
+        batchStatements.push({
+          sql: `INSERT INTO tasks (id, ticket_id, title, description, status, priority, pic_name, lead_id, project_id, total_actual_hours, deadline, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [taskId, currentTicketId, projectName, `Task proyek ${projectName} di bawah kategori ${categoryName}`, "todo", priority, pic, leadId, projectId, 0, "2026-10-02T18:00:00.000Z", now, now],
+        });
+        tasksCreated++;
+        addedNewTasks.push({
+          id: taskId,
+          ticketId: currentTicketId,
+          title: projectName,
+          categoryName,
+          pic,
+        });
+        existingTasks.push({ id: taskId, ticket_id: currentTicketId, title: projectName, status: "todo", project_id: projectId });
       }
 
-      // Jika kategori baru belum ada di master data, otomatis registrasikan
-      if (!matchedMaster) {
-        const newCatId = crypto.randomUUID();
-        insertMasterCatStmt.run(
-          newCatId,
-          cleanCatName,
-          catCode,
-          null,
-          `Otomatis terdaftar dari sinkronisasi ${sprintLabel}`,
-          now,
-          now
+      // 3. Subtasks (Task Detail column in sheet)
+      const subtaskGroupMap = new Map<string, string[][]>();
+      for (const sr of subtaskRows) {
+        const rawSubtaskTitle = sr[h.tIdx] || projectName;
+        const subtaskTitle = rawSubtaskTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
+        const rawBobot = (sr[h.hIdx] || "").trim().replace(",", ".");
+        const workload = isNaN(parseFloat(rawBobot)) ? 0 : parseFloat(rawBobot);
+        const subKey = `${subtaskTitle}__${workload}`;
+        if (!subtaskGroupMap.has(subKey)) {
+          subtaskGroupMap.set(subKey, []);
+        }
+        subtaskGroupMap.get(subKey)!.push(sr);
+      }
+
+      for (const [, rowsInSubtask] of subtaskGroupMap.entries()) {
+        const firstSubtaskRow = rowsInSubtask[0];
+        const rawSubtaskTitle = firstSubtaskRow[h.tIdx] || projectName;
+        const subtaskTitle = rawSubtaskTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
+        const rawBobot = (firstSubtaskRow[h.hIdx] || "").trim().replace(",", ".");
+        const workload = isNaN(parseFloat(rawBobot)) ? 0 : parseFloat(rawBobot);
+
+        const anyDone = rowsInSubtask.some((r) => (r[h.stIdx] || "").toLowerCase() === "done");
+
+        const descParts: string[] = [];
+        if (firstSubtaskRow[h.pengIdx] && firstSubtaskRow[h.pengIdx].trim()) descParts.push(`Pengerjaan: ${firstSubtaskRow[h.pengIdx].trim()}`);
+        if (firstSubtaskRow[h.fIdx] && firstSubtaskRow[h.fIdx].trim()) descParts.push(`Fitur: ${firstSubtaskRow[h.fIdx].trim()}`);
+        if (firstSubtaskRow[h.nIdx] && firstSubtaskRow[h.nIdx].trim()) descParts.push(`Notes: ${firstSubtaskRow[h.nIdx].trim()}`);
+        const description = descParts.length > 0 ? descParts.join("\n") : undefined;
+        const featureGoal = firstSubtaskRow[h.fIdx] ? `Fitur: ${firstSubtaskRow[h.fIdx].trim()}` : undefined;
+
+        // Check if subtask exists in DB for this task
+        const candidates = existingSubtasks.filter(
+          (s) => s.task_id === taskId && s.title.toLowerCase().trim() === subtaskTitle.toLowerCase()
         );
-        masterCatMap.set(cleanCatName.toLowerCase(), {
-          id: newCatId,
-          name: cleanCatName,
-          code: catCode,
-          lead_id: null,
+
+        let existingSubtask = candidates.find(
+          (c) => !matchedSubtaskIds.has(c.id) && c.workload_hours === workload
+        );
+        if (!existingSubtask) {
+          existingSubtask = candidates.find((c) => !matchedSubtaskIds.has(c.id));
+        }
+
+        let subtaskId: string;
+
+        if (existingSubtask) {
+          subtaskId = existingSubtask.id;
+          matchedSubtaskIds.add(subtaskId);
+          const currentStatus = existingSubtask.status;
+
+          if (currentStatus === "in_progress" || currentStatus === "review" || currentStatus === "done") {
+            subtasksPreserved++;
+            batchStatements.push({
+              sql: "UPDATE subtasks SET description = ?, goals = ?, workload_hours = ?, updated_at = ? WHERE id = ?",
+              args: [description || null, featureGoal || null, workload, now, existingSubtask.id],
+            });
+          } else if (anyDone) {
+            batchStatements.push({
+              sql: "UPDATE subtasks SET done = 1, status = 'done', workload_hours = ?, updated_at = ? WHERE id = ?",
+              args: [workload, now, existingSubtask.id],
+            });
+            subtasksUpdated++;
+          } else {
+            batchStatements.push({
+              sql: "UPDATE subtasks SET description = ?, goals = ?, workload_hours = ?, updated_at = ? WHERE id = ?",
+              args: [description || null, featureGoal || null, workload, now, existingSubtask.id],
+            });
+            subtasksUpdated++;
+          }
+        } else {
+          subtaskId = crypto.randomUUID();
+          matchedSubtaskIds.add(subtaskId);
+          const initialStatus = anyDone ? "done" : "to_do";
+
+          batchStatements.push({
+            sql: `INSERT INTO subtasks (id, task_id, title, description, goals, done, status, workload_hours, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [subtaskId, taskId, subtaskTitle, description || null, featureGoal || null, anyDone ? 1 : 0, initialStatus, workload, now, now],
+          });
+          subtasksCreated++;
+
+          const rawAssignees = Array.from(new Set(rowsInSubtask.map((r) => (r[h.cIdx] || "").trim()).filter(Boolean)));
+          addedNewSubtasks.push({
+            id: subtaskId,
+            title: subtaskTitle,
+            taskTitle: projectName,
+            categoryName,
+            workloadHours: workload,
+            assignees: rawAssignees,
+          });
+          existingSubtasks.push({ id: subtaskId, task_id: taskId, title: subtaskTitle, status: initialStatus, workload_hours: workload, done: anyDone ? 1 : 0 });
+        }
+
+        // Assignees
+        const seenStaff = new Set<string>();
+        const assigneeList: { id: string; name: string }[] = [];
+
+        for (const sr of rowsInSubtask) {
+          const contributorName = (sr[h.cIdx] || "").trim() || "Staff";
+          const staffUserId = userMap.get(contributorName.toLowerCase()) || userMap.get("arif")!;
+          totalWorkloadHours += workload;
+
+          if (!seenStaff.has(staffUserId)) {
+            seenStaff.add(staffUserId);
+            assigneeList.push({ id: staffUserId, name: contributorName });
+
+            const assKey = `${subtaskId}___${staffUserId}`;
+            if (!existingAssigneesSet.has(assKey)) {
+              existingAssigneesSet.add(assKey);
+              batchStatements.push({
+                sql: "INSERT INTO subtask_assignees (subtask_id, staff_id, assigned_at) VALUES (?, ?, ?)",
+                args: [subtaskId, staffUserId, now],
+              });
+            }
+
+            if (anyDone) {
+              batchStatements.push({
+                sql: "INSERT INTO time_contributions (subtask_id, staff_id, hours) VALUES (?, ?, ?)",
+                args: [subtaskId, staffUserId, workload],
+              });
+            }
+          }
+        }
+
+        batchStatements.push({
+          sql: `INSERT INTO staff_assignment_history (id, subtask_id, previous_assignees, new_assignees, changed_by, change_type, reason, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [crypto.randomUUID(), subtaskId, null, JSON.stringify(assigneeList.map((a) => a.name)), performedBy || "Sprint Sync Engine", "added", `Sinkronisasi otomatis ${sprintLabel}`, now],
+        });
+
+        const primaryStaffId = assigneeList[0]?.id || userMap.get("arif")!;
+        batchStatements.push({
+          sql: `INSERT INTO activity_logs (id, subtask_id, task_id, user_id, action, timestamp, duration_hours, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [crypto.randomUUID(), subtaskId, taskId, primaryStaffId, anyDone ? "completed" : "created", now, anyDone ? workload : 0, `Subtask '${subtaskTitle}' disinkronkan dari Google Sheets`],
         });
       }
 
-      // 1. Projects (Category level)
-      const existingProject = findProjectStmt.get(categoryName, sprintLabel) as
-        | { id: string; title: string; lead_id: string }
-        | undefined;
-
-      if (existingProject) {
-        projectId = existingProject.id;
-        updateProjectStmt.run(`Kategori Project: ${categoryName} — ${sprintLabel}`, leadId, now, projectId);
-        projectsUpdated++;
-      } else {
-        projectId = crypto.randomUUID();
-        insertProjectStmt.run(
-          projectId,
-          categoryName,
-          `Kategori Project: ${categoryName} — ${sprintLabel}`,
-          sprintLabel,
-          leadId,
-          "2026-10-02T23:59:59.000Z",
-          now,
-          now
-        );
-        projectsCreated++;
-      }
-
-      let taskCounter = 1;
-      for (const [projectName, subtaskRows] of taskMap.entries()) {
-        let taskId: string;
-        const firstRow = subtaskRows[0];
-        const pic = firstRow[h.cIdx] || "Tim";
-        const priorityRaw = (firstRow[h.prIdx] || "medium").toLowerCase();
-        const priority = ["low", "medium", "high", "urgent"].includes(priorityRaw) ? priorityRaw : "medium";
-        const ticketId = `S${numOnly || "000"}-${catCode}-${String(taskCounter).padStart(2, "0")}`;
-
-        // 2. Tasks (Project column in sheet)
-        const existingTask = findTaskStmt.get(projectName, projectId) as
-          | { id: string; ticket_id: string; title: string; status: string; total_actual_hours: number }
-          | undefined;
-
-        if (existingTask) {
-          taskId = existingTask.id;
-          updateTaskStmt.run(pic, priority, leadId, now, taskId);
-          tasksUpdated++;
-        } else {
-          taskId = crypto.randomUUID();
-          
-          let currentTicketId = ticketId;
-          let offset = 0;
-          while (sqlite.prepare("SELECT 1 FROM tasks WHERE ticket_id = ?").get(currentTicketId)) {
-            offset++;
-            currentTicketId = `S${numOnly || "000"}-${catCode}-${String(taskCounter + offset).padStart(2, "0")}`;
-          }
-
-          insertTaskStmt.run(
-            taskId,
-            currentTicketId,
-            projectName,
-            `Task proyek ${projectName} di bawah kategori ${categoryName}`,
-            "todo",
-            priority,
-            pic,
-            leadId,
-            projectId,
-            0,
-            "2026-10-02T18:00:00.000Z",
-            now,
-            now
-          );
-          tasksCreated++;
-        }
-
-        // 3. Subtasks (Task Detail column in sheet) — Group by Title + Bobot so co-assignees share 1 card
-        const subtaskGroupMap = new Map<string, string[][]>();
-        for (const sr of subtaskRows) {
-          const rawSubtaskTitle = sr[h.tIdx] || projectName;
-          const subtaskTitle = rawSubtaskTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
-          const rawBobot = (sr[h.hIdx] || "").trim().replace(",", ".");
-          const workload = isNaN(parseFloat(rawBobot)) ? 0 : parseFloat(rawBobot);
-          const subKey = `${subtaskTitle}__${workload}`;
-          if (!subtaskGroupMap.has(subKey)) {
-            subtaskGroupMap.set(subKey, []);
-          }
-          subtaskGroupMap.get(subKey)!.push(sr);
-        }
-
-        for (const [, rowsInSubtask] of subtaskGroupMap.entries()) {
-          const firstSubtaskRow = rowsInSubtask[0];
-          const rawSubtaskTitle = firstSubtaskRow[h.tIdx] || projectName;
-          const subtaskTitle = rawSubtaskTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
-          const rawBobot = (firstSubtaskRow[h.hIdx] || "").trim().replace(",", ".");
-          const workload = isNaN(parseFloat(rawBobot)) ? 0 : parseFloat(rawBobot);
-
-          const anyDone = rowsInSubtask.some((r) => (r[h.stIdx] || "").toLowerCase() === "done");
-
-          const descParts: string[] = [];
-          if (firstSubtaskRow[h.pengIdx] && firstSubtaskRow[h.pengIdx].trim()) descParts.push(`Pengerjaan: ${firstSubtaskRow[h.pengIdx].trim()}`);
-          if (firstSubtaskRow[h.fIdx] && firstSubtaskRow[h.fIdx].trim()) descParts.push(`Fitur: ${firstSubtaskRow[h.fIdx].trim()}`);
-          if (firstSubtaskRow[h.nIdx] && firstSubtaskRow[h.nIdx].trim()) descParts.push(`Notes: ${firstSubtaskRow[h.nIdx].trim()}`);
-          const description = descParts.length > 0 ? descParts.join("\n") : undefined;
-          const featureGoal = firstSubtaskRow[h.fIdx] ? `Fitur: ${firstSubtaskRow[h.fIdx].trim()}` : undefined;
-
-          // Check if subtask exists in DB for this task
-          const candidates = findSubtaskByTaskAndTitleStmt.all(subtaskTitle, taskId) as {
-            id: string;
-            title: string;
-            status: string;
-            workload_hours: number;
-            done: number;
-          }[];
-
-          let existingSubtask = candidates.find(
-            (c) => !matchedSubtaskIds.has(c.id) && c.workload_hours === workload
-          );
-          if (!existingSubtask) {
-            existingSubtask = candidates.find((c) => !matchedSubtaskIds.has(c.id));
-          }
-
-          let subtaskId: string;
-
-          if (existingSubtask) {
-            subtaskId = existingSubtask.id;
-            matchedSubtaskIds.add(subtaskId);
-            const currentStatus = existingSubtask.status;
-
-            // SMART MERGE RULE:
-            // If already in_progress, review, or done, PRESERVE progress!
-            if (currentStatus === "in_progress" || currentStatus === "review" || currentStatus === "done") {
-              subtasksPreserved++;
-              updateSubtaskStmt.run(description, featureGoal, workload, now, existingSubtask.id);
-            } else if (anyDone) {
-              updateSubtaskDoneStmt.run(workload, now, existingSubtask.id);
-              subtasksUpdated++;
-            } else {
-              updateSubtaskStmt.run(description, featureGoal, workload, now, existingSubtask.id);
-              subtasksUpdated++;
-            }
-          } else {
-            subtaskId = crypto.randomUUID();
-            matchedSubtaskIds.add(subtaskId);
-            const initialStatus = anyDone ? "done" : "to_do";
-
-            insertSubtaskStmt.run(
-              subtaskId,
-              taskId,
-              subtaskTitle,
-              description,
-              featureGoal,
-              anyDone ? 1 : 0,
-              initialStatus,
-              workload,
-              now,
-              now
-            );
-            subtasksCreated++;
-          }
-
-          // Handle Assignees for this subtask:
-          // The first row in the sheet is the primary subtask owner, subsequent are co-assignees.
-          const seenStaff = new Set<string>();
-          const assigneeList: { id: string; name: string }[] = [];
-
-          for (const sr of rowsInSubtask) {
-            const contributorName = (sr[h.cIdx] || "").trim() || "Staff";
-            const staffUserId = userMap.get(contributorName.toLowerCase()) || userMap.get("arif")!;
-            totalWorkloadHours += workload;
-
-            if (!seenStaff.has(staffUserId)) {
-              seenStaff.add(staffUserId);
-              assigneeList.push({ id: staffUserId, name: contributorName });
-
-              const existingAssignee = findAssigneeStmt.get(subtaskId, staffUserId);
-              if (!existingAssignee) {
-                insertSubtaskAssigneeStmt.run(subtaskId, staffUserId, now);
-              }
-
-              if (anyDone) {
-                const existingContrib = findTimeContribStmt.get(subtaskId, staffUserId);
-                if (!existingContrib) {
-                  insertTimeContribStmt.run(subtaskId, staffUserId, workload);
-                }
-              }
-            }
-          }
-
-          insertAssignmentHistoryStmt.run(
-            crypto.randomUUID(),
-            subtaskId,
-            null,
-            JSON.stringify(assigneeList.map((a) => a.name)),
-            performedBy || "Sprint Sync Engine",
-            "added",
-            `Sinkronisasi otomatis ${sprintLabel}`,
-            now
-          );
-
-          const primaryStaffId = assigneeList[0]?.id || userMap.get("arif")!;
-          insertActivityLogStmt.run(
-            crypto.randomUUID(),
-            subtaskId,
-            taskId,
-            primaryStaffId,
-            anyDone ? "completed" : "created",
-            now,
-            anyDone ? workload : 0,
-            `Subtask '${subtaskTitle}' disinkronkan dari Google Sheets`
-          );
-        }
-
-        taskCounter++;
-      }
+      taskCounter++;
     }
-  });
+  }
 
-  runSyncTransaction();
+  // 4. Execute all batch statements in chunks of 50 to Turso/LibSQL client
+  console.log(`🚀 Menjalankan ${batchStatements.length} statements via client.batch...`);
+  const CHUNK_SIZE = 50;
+  for (let i = 0; i < batchStatements.length; i += CHUNK_SIZE) {
+    const chunk = batchStatements.slice(i, i + CHUNK_SIZE);
+    await client.batch(chunk);
+  }
 
-  // Checkpoint SQLite WAL after transaction completes
-  try {
-    sqlite.pragma("wal_checkpoint(TRUNCATE)");
-  } catch {
-    // ignore
+  // Also apply to local sqlite instance if available and not using Turso
+  if (sqlite && !process.env.TURSO_DATABASE_URL) {
+    try {
+      const localTx = sqlite.transaction(() => {
+        for (const stmt of batchStatements) {
+          try {
+            sqlite.prepare(stmt.sql).run(...stmt.args);
+          } catch {
+            // ignore duplicate constraints in fallback
+          }
+        }
+      });
+      localTx();
+      sqlite.pragma("wal_checkpoint(TRUNCATE)");
+    } catch (localErr) {
+      console.warn("Local SQLite mirror note:", localErr);
+    }
   }
 
   return {
@@ -862,5 +943,9 @@ export async function executeSprintSync(options: {
     subtasksUpdated,
     totalWorkloadHours: Math.round(totalWorkloadHours * 10) / 10,
     syncedAt: now,
+    addedItems: {
+      newTasks: addedNewTasks,
+      newSubtasks: addedNewSubtasks,
+    },
   };
 }
