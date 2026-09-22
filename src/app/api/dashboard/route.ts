@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, sqlite } from "@/db";
+import { db, rawQuery } from "@/db";
 import { projects, tasks, subtasks, subtaskAssignees, users } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -229,17 +229,17 @@ export async function GET(request: NextRequest) {
     const unassignedSubtasksCount = activeSubtasks.filter((s) => !assignedSubtaskIds.has(s.id)).length;
 
     // Ambil data penugasan staf per lead dari tabel lead_staff_assignments
-    const teamAssignments = sqlite.prepare(`
-      SELECT lsa.lead_id, lsa.staff_id, u.nama, u.username, u.capacity_hours_per_month
-      FROM lead_staff_assignments lsa
-      JOIN users u ON lsa.staff_id = u.id
-    `).all() as Array<{
+    const teamAssignments = await rawQuery<{
       lead_id: string;
       staff_id: string;
       nama: string;
       username: string;
       capacity_hours_per_month: number;
-    }>;
+    }>(`
+      SELECT lsa.lead_id, lsa.staff_id, u.nama, u.username, u.capacity_hours_per_month
+      FROM lead_staff_assignments lsa
+      JOIN users u ON lsa.staff_id = u.id
+    `);
 
     const assignedStaffByLead = new Map<string, Array<{
       id: string;

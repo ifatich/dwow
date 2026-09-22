@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, sqlite } from "@/db";
+import { db, rawExecute } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * GET /api/users/:userId — detail user
@@ -62,12 +65,14 @@ export async function PATCH(
 
     // Update relasi lead jika disertakan
     if (leadIds !== undefined && Array.isArray(leadIds)) {
-      sqlite.prepare("DELETE FROM lead_staff_assignments WHERE staff_id = ?").run(userId);
-      const insertStmt = sqlite.prepare(
-        "INSERT INTO lead_staff_assignments (lead_id, staff_id, assigned_at) VALUES (?, ?, ?)"
-      );
+      await rawExecute("DELETE FROM lead_staff_assignments WHERE staff_id = ?", [userId]);
       for (const lId of leadIds) {
-        if (lId) insertStmt.run(lId, userId, now);
+        if (lId) {
+          await rawExecute(
+            "INSERT INTO lead_staff_assignments (lead_id, staff_id, assigned_at) VALUES (?, ?, ?)",
+            [lId, userId, now]
+          );
+        }
       }
     }
 

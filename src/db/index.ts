@@ -1,8 +1,13 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/libsql";
+import { createClient, type Client } from "@libsql/client";
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import * as schema from "./schema";
+
+const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
+const tursoUrl = process.env.TURSO_DATABASE_URL;
+const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
 function getDatabasePath(): string {
   const candidatePaths = [
@@ -11,8 +16,6 @@ function getDatabasePath(): string {
     path.join(process.cwd(), ".next/standalone/taskforge.db"),
     path.resolve("./taskforge.db"),
   ];
-
-  const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
 
   if (isVercel) {
     const tmpPath = "/tmp/taskforge.db";
@@ -42,10 +45,21 @@ function getDatabasePath(): string {
 }
 
 const dbPath = getDatabasePath();
-const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
 
+// LibSQL Client initialization:
+// If TURSO_DATABASE_URL is provided, connect directly to Turso cloud database.
+// Otherwise, connect to local SQLite file.
+const clientUrl = tursoUrl ? tursoUrl : `file:${dbPath}`;
+
+export const client: Client = createClient({
+  url: clientUrl,
+  authToken: tursoAuthToken,
+});
+
+export const db = drizzle(client, { schema });
+
+// Better-sqlite3 instance for local tooling or backward compatibility
 let sqliteInstance: Database.Database;
-
 try {
   sqliteInstance = new Database(dbPath);
   if (!isVercel) {
@@ -57,4 +71,27 @@ try {
 }
 
 export const sqlite = sqliteInstance;
-export const db = drizzle(sqlite, { schema });
+
+/**
+ * Helper for running raw SELECT queries safely across both Turso and local SQLite.
+ */
+export async function rawQuery<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  const result = await client.execute({ sql, args: params });
+  return result.rows as unknown as T[];
+}
+
+/**
+ * Helper for running raw SELECT query returning a single row.
+ */
+export async function rawQueryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  const result = await client.execute({ sql, args: params });
+  return (result.rows[0] as unknown as T) || null;
+}
+
+/**
+ * Helper for running raw INSERT / UPDATE / DELETE queries.
+ */
+export async function rawExecute(sql: string, params: any[] = []): Promise<{ rowsAffected: number }> {
+  const result = await client.execute({ sql, args: params });
+  return { rowsAffected: result.rowsAffected };
+}

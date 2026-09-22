@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, sqlite } from "@/db";
+import { db, rawQuery } from "@/db";
 import { users, tasks, subtasks, subtaskAssignees, projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { calculateStaffPerformance, calculateLeadPerformance } from "@/lib/performance-calculator";
@@ -107,9 +107,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate Lead Review duties (reviewsTotal, reviewsDone, reviewsPending)
-    const teamAssignments = sqlite.prepare(`
+    const teamAssignments = await rawQuery<{ lead_id: string; staff_id: string }>(`
       SELECT lead_id, staff_id FROM lead_staff_assignments
-    `).all() as Array<{ lead_id: string; staff_id: string }>;
+    `);
 
     const staffByLeadMap = new Map<string, Set<string>>();
     for (const ta of teamAssignments) {

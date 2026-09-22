@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { db, sqlite } from "@/db";
+import { db, rawQuery } from "@/db";
 import { users } from "@/db/schema";
 import { or, eq } from "drizzle-orm";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * GET /api/staff
@@ -21,11 +24,11 @@ export async function GET() {
       .where(or(eq(users.role, "staff"), eq(users.role, "lead")))
       .orderBy(users.nama);
 
-    const assignments = sqlite.prepare(`
+    const assignments = await rawQuery<{ staff_id: string; lead_id: string; lead_nama: string; lead_username: string }>(`
       SELECT lsa.staff_id, u.id as lead_id, u.nama as lead_nama, u.username as lead_username
       FROM lead_staff_assignments lsa
       JOIN users u ON lsa.lead_id = u.id
-    `).all() as Array<{ staff_id: string; lead_id: string; lead_nama: string; lead_username: string }>;
+    `);
 
     const leadsByStaffId = new Map<string, Array<{ id: string; nama: string; username: string }>>();
     for (const a of assignments) {
