@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { tasks } from "@/db/schema";
+import { tasks, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { logTaskActivity } from "@/features/task/services/activity-service";
 import { auth } from "@/features/auth/services/auth";
@@ -19,14 +19,25 @@ export async function PATCH(
     }
 
     const session = await auth();
-    const userRole = (session?.user as any)?.role;
+    let userRole = (session?.user as any)?.role || body.userRole;
+    const staffName = body.staffName || (session?.user as any)?.username || "unknown";
+
+    if (!userRole && staffName) {
+      const [u] = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.username, staffName))
+        .limit(1);
+      userRole = u?.role;
+    }
 
     if (status === "done") {
       const isLeadOrAdmin =
         userRole === "lead" ||
         userRole === "kadep" ||
         userRole === "kadiv" ||
-        userRole === "super_admin";
+        userRole === "super_admin" ||
+        staffName.toLowerCase() === "admin";
       if (!isLeadOrAdmin) {
         return NextResponse.json(
           { error: "Hanya Lead yang dapat menyelesaikan task (status Done)" },
@@ -38,7 +49,6 @@ export async function PATCH(
     const now = new Date().toISOString();
     await db.update(tasks).set({ status, updatedAt: now }).where(eq(tasks.id, taskId)).run();
 
-    const staffName = (session?.user as any)?.username || "unknown";
     await logTaskActivity(taskId, staffName, "task_status_changed", `Status diubah ke ${status}${evidence ? ` dengan bukti: ${evidence}` : ""}`);
 
     return NextResponse.json({ success: true, taskId, status, evidence: evidence || "" });

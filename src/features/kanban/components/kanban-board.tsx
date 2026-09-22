@@ -171,7 +171,12 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
       const res = await fetch(`/api/tasks/${taskId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus, evidence }),
+        body: JSON.stringify({
+          status: newStatus,
+          evidence,
+          staffName: activeUsername || user?.username,
+          userRole: user?.role,
+        }),
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

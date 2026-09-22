@@ -7,6 +7,9 @@ import { getTasksByProject } from "@/features/task/services/task-repository";
  * Mengembalikan semua task dalam sebuah project beserta subtask,
  * assignees, activity logs, dan time contributions dari database.
  */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }

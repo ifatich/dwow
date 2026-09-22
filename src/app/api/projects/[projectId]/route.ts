@@ -7,6 +7,9 @@ import { eq, or } from "drizzle-orm";
  * GET /api/projects/[projectId]
  * Mengembalikan detail project berdasarkan ID atau Title beserta informasi lead.
  */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }

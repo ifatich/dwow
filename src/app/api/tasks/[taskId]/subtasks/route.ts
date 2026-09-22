@@ -9,6 +9,9 @@ import type { SubtaskStatus } from "@/lib/types";
  * Mengembalikan semua subtask dari suatu task.
  * Optional query param: `status` — filter by status.
  */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }

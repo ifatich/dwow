@@ -3,6 +3,9 @@ import { db } from "@/db";
 import { tasks, subtasks, subtaskAssignees, users, activityLogs, timeContributions, projects } from "@/db/schema";
 import { eq, asc, or } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }

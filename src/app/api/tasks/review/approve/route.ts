@@ -61,12 +61,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verifikasi Lead: hanya lead task yang boleh approve
+    // Verifikasi Lead: lead task, admin, atau super_admin boleh approve
     const taskLead = taskRow.leadUsername || "";
-    if (taskLead.toLowerCase() !== leadName.toLowerCase()) {
+    const isLeadOrAdmin =
+      taskLead.toLowerCase() === leadName.toLowerCase() ||
+      leadName.toLowerCase() === "admin" ||
+      leadName.toLowerCase() === "kadep" ||
+      leadName.toLowerCase() === "kadiv";
+
+    if (!isLeadOrAdmin) {
       return NextResponse.json(
         {
-          error: `Hanya Lead "${taskLead}" yang dapat menyetujui subtask ini`,
+          error: `Hanya Lead "${taskLead}" atau Admin yang dapat menyetujui subtask ini`,
         },
         { status: 403 }
       );
