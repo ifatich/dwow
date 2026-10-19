@@ -165,7 +165,76 @@ export function resolveHeaders(headerRow: string[]) {
     prIdx: findIdx(["priority", "prioritas"]),
     nIdx: findIdx(["notes / files", "notes", "catatan", "files"]),
     stIdx: findIdx(["status"]),
+    endIdx: findIdx(["end date", "end_date", "tgl selesai", "tanggal selesai", "selesai", "deadline"]),
+    startIdx: findIdx(["start date", "start_date", "tgl mulai", "tanggal mulai", "mulai"]),
   };
+}
+
+/**
+ * Parses dates formatted in Indonesian or English (e.g. "30 Oktober 2026", "10 Jul2026", "10/2/2026") into ISO 8601.
+ */
+export function parseSpreadsheetDate(raw?: string, fallbackIso?: string): string {
+  if (!raw || !raw.trim()) {
+    return fallbackIso || new Date().toISOString();
+  }
+  const str = raw.trim();
+
+  const monthMap: Record<string, number> = {
+    jan: 0, januari: 0, january: 0,
+    feb: 1, februari: 1, february: 1,
+    mar: 2, maret: 2, march: 2,
+    apr: 3, april: 3,
+    mei: 4, may: 4,
+    jun: 5, juni: 5, june: 5,
+    jul: 6, juli: 6, july: 6,
+    agu: 7, agustus: 7, aug: 7, august: 7,
+    sep: 8, september: 8,
+    okt: 9, oktober: 9, oct: 9, october: 9,
+    nov: 10, november: 10,
+    des: 11, desember: 11, dec: 11, december: 11,
+  };
+
+  // Match e.g. "30 Oktober 2026" or "10 Jul2026" or "2 Okt 2026"
+  const m = str.match(/^(\d{1,2})\s*([a-zA-Z]+)\s*(\d{4})$/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const monthStr = m[2].toLowerCase();
+    const year = parseInt(m[3], 10);
+    const month = monthMap[monthStr];
+    if (month !== undefined) {
+      return new Date(Date.UTC(year, month, day, 18, 0, 0)).toISOString();
+    }
+  }
+
+  // Match e.g. "10/2/2026" or "30/10/2026" or "2026-10-30"
+  if (str.includes("/") || str.includes("-")) {
+    const parts = str.split(/[\/\-]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD
+        const y = parseInt(parts[0], 10);
+        const mon = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        return new Date(Date.UTC(y, mon, d, 18, 0, 0)).toISOString();
+      } else {
+        // DD/MM/YYYY or MM/DD/YYYY
+        const p1 = parseInt(parts[0], 10);
+        const p2 = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        const day = p1 > 12 ? p1 : p2;
+        const mon = p1 > 12 ? p2 - 1 : p1 - 1;
+        return new Date(Date.UTC(y, mon, day, 18, 0, 0)).toISOString();
+      }
+    }
+  }
+
+  const direct = new Date(str);
+  if (!isNaN(direct.getTime()) && direct.getFullYear() > 2000) {
+    direct.setHours(18, 0, 0, 0);
+    return direct.toISOString();
+  }
+
+  return fallbackIso || new Date().toISOString();
 }
 
 /**
@@ -736,14 +805,28 @@ export async function executeSprintSync(options: {
       });
     }
 
+    // Dynamically calculate sprint cutoff from spreadsheet's End Date column
+    let detectedSprintCutoff = "2026-10-30T23:59:59.000Z";
+    if (h.endIdx !== -1) {
+      const parsedDates = validRows
+        .map((r) => (r[h.endIdx] || "").trim())
+        .filter(Boolean)
+        .map((dStr) => parseSpreadsheetDate(dStr))
+        .filter((iso) => Boolean(iso));
+
+      if (parsedDates.length > 0) {
+        detectedSprintCutoff = parsedDates.sort().reverse()[0];
+      }
+    }
+
     // 1. Projects (Category level)
     const existingProject = existingProjectMap.get(cleanCatName.toLowerCase());
 
     if (existingProject) {
       projectId = existingProject.id;
       batchStatements.push({
-        sql: "UPDATE projects SET description = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
-        args: [`Kategori Project: ${categoryName} — ${sprintLabel}`, leadId, now, projectId],
+        sql: "UPDATE projects SET description = ?, sprint_cutoff = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
+        args: [`Kategori Project: ${categoryName} — ${sprintLabel}`, detectedSprintCutoff, leadId, now, projectId],
       });
       projectsUpdated++;
     } else {
@@ -751,7 +834,7 @@ export async function executeSprintSync(options: {
       batchStatements.push({
         sql: `INSERT INTO projects (id, title, description, sprint, lead_id, sprint_cutoff, is_archived, created_at, updated_at)
               VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-        args: [projectId, categoryName, `Kategori Project: ${categoryName} — ${sprintLabel}`, sprintLabel, leadId, "2026-10-02T23:59:59.000Z", now, now],
+        args: [projectId, categoryName, `Kategori Project: ${categoryName} — ${sprintLabel}`, sprintLabel, leadId, detectedSprintCutoff, now, now],
       });
       existingProjectMap.set(cleanCatName.toLowerCase(), { id: projectId, title: categoryName, lead_id: leadId || "" });
       projectsCreated++;
@@ -766,6 +849,15 @@ export async function executeSprintSync(options: {
       const priority = ["low", "medium", "high", "urgent"].includes(priorityRaw) ? priorityRaw : "medium";
       const ticketId = `S${numOnly || "000"}-${catCode}-${String(taskCounter).padStart(2, "0")}`;
 
+      // Determine task deadline from its subtask rows in the sheet
+      let taskDeadline = detectedSprintCutoff;
+      if (h.endIdx !== -1) {
+        const rowWithDate = subtaskRows.find((r) => (r[h.endIdx] || "").trim());
+        if (rowWithDate) {
+          taskDeadline = parseSpreadsheetDate(rowWithDate[h.endIdx], detectedSprintCutoff);
+        }
+      }
+
       // 2. Tasks (Project column in sheet)
       const existingTask = existingTasks.find(
         (t) => t.project_id === projectId && t.title.toLowerCase().trim() === projectName.toLowerCase().trim()
@@ -774,8 +866,8 @@ export async function executeSprintSync(options: {
       if (existingTask) {
         taskId = existingTask.id;
         batchStatements.push({
-          sql: "UPDATE tasks SET pic_name = ?, priority = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
-          args: [pic, priority, leadId, now, taskId],
+          sql: "UPDATE tasks SET pic_name = ?, priority = ?, deadline = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
+          args: [pic, priority, taskDeadline, leadId, now, taskId],
         });
         tasksUpdated++;
       } else {
@@ -791,7 +883,7 @@ export async function executeSprintSync(options: {
         batchStatements.push({
           sql: `INSERT INTO tasks (id, ticket_id, title, description, status, priority, pic_name, lead_id, project_id, total_actual_hours, deadline, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [taskId, currentTicketId, projectName, `Task proyek ${projectName} di bawah kategori ${categoryName}`, "todo", priority, pic, leadId, projectId, 0, "2026-10-02T18:00:00.000Z", now, now],
+          args: [taskId, currentTicketId, projectName, `Task proyek ${projectName} di bawah kategori ${categoryName}`, "todo", priority, pic, leadId, projectId, 0, taskDeadline, now, now],
         });
         tasksCreated++;
         addedNewTasks.push({
