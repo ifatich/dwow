@@ -22,7 +22,7 @@ import KanbanToolbar, { KanbanFilters } from "./kanban-toolbar";
 import EvidenceDialog from "@/features/task/components/evidence-dialog";
 import ProjectProgressSummary from "@/features/project/components/project-progress-summary";
 import { useRealtimeSync, notifyRealtimeSync } from "@/lib/realtime-sync";
-import { KanbanSkeleton } from "@/components/shared/skeletons";
+import { KanbanSkeleton, ProjectProgressSummarySkeleton } from "@/components/shared/skeletons";
 
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 
@@ -305,7 +305,7 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
         <div className="flex-1 overflow-hidden">
           <div className="max-w-[1280px] mx-auto px-xl py-lg">
             {/* Project Progress Summary Chart */}
-            {!loading && <ProjectProgressSummary tasks={tasks} />}
+            {loading ? <ProjectProgressSummarySkeleton /> : <ProjectProgressSummary tasks={tasks} />}
 
             {/* Toolbar: search & filter */}
             <div className="mb-lg">

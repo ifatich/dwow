@@ -257,3 +257,106 @@ export function TableSkeleton({ cols = 4 }: { cols?: number }) {
     </div>
   );
 }
+
+/** Stat Cards Container Skeleton */
+export function StatCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-md mb-xxl stat-card-grid">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="bg-canvas rounded-lg p-lg border border-hairline shadow-xs space-y-sm">
+          <SkeletonBar className="h-3 w-20" />
+          <SkeletonBar className="h-8 w-16" />
+          <SkeletonBar className="h-3 w-28" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Charts Grid Container Skeleton */
+export function ChartsGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-md mb-xxl">
+      {[1, 2].map((i) => (
+        <div key={i} className="bg-canvas border border-hairline rounded-lg p-lg space-y-md shadow-xs">
+          <div className="flex items-center justify-between">
+            <SkeletonBar className="h-4 w-36" />
+            <SkeletonBar className="h-4 w-16 rounded-pill" />
+          </div>
+          <SkeletonBar className="h-44 w-full rounded-md" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Lead Performance Container Skeleton */
+export function LeadPerformanceSkeleton() {
+  return (
+    <div className="bg-surface-soft/60 rounded-lg border border-hairline-soft p-lg mb-xxl space-y-md">
+      <div className="flex items-center justify-between">
+        <div className="space-y-xs">
+          <SkeletonBar className="h-4 w-56" />
+          <SkeletonBar className="h-3 w-72" />
+        </div>
+        <SkeletonBar className="h-6 w-24 rounded-pill" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-canvas border border-hairline rounded-lg p-md space-y-sm shadow-xs">
+            <div className="flex items-center gap-sm">
+              <SkeletonBar className="h-8 w-8 rounded-full" />
+              <div className="space-y-xxs flex-1">
+                <SkeletonBar className="h-3 w-24" />
+                <SkeletonBar className="h-2 w-16" />
+              </div>
+            </div>
+            <SkeletonBar className="h-3 w-full" />
+            <SkeletonBar className="h-2 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Project Grid Container Skeleton */
+export function ProjectGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md items-start">
+      {[1, 2, 3].map((p) => (
+        <div key={p} className="bg-canvas border border-hairline rounded-lg p-lg space-y-md shadow-xs">
+          <div className="flex justify-between items-center">
+            <SkeletonBar className="h-4 w-20 rounded-pill" />
+            <SkeletonBar className="h-4 w-14 rounded-pill" />
+          </div>
+          <SkeletonBar className="h-5 w-3/4" />
+          <SkeletonBar className="h-3 w-full" />
+          <SkeletonBar className="h-3 w-5/6" />
+          <div className="pt-sm space-y-xs">
+            <SkeletonBar className="h-2 w-full rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Project Metadata Section Skeleton */
+export function ProjectMetadataSkeleton() {
+  return (
+    <div className="max-w-[1280px] mx-auto px-xl pt-lg pb-xs space-y-sm">
+      <SkeletonBar className="h-4 w-20 rounded-pill" />
+      <SkeletonBar className="h-8 w-72 max-w-full rounded-md" />
+      <div className="flex items-center gap-md">
+        <SkeletonBar className="h-4 w-28" />
+        <SkeletonBar className="h-4 w-28" />
+      </div>
+      <div className="bg-surface-soft/40 border border-hairline-soft rounded-lg p-md space-y-xs">
+        <SkeletonBar className="h-3 w-full" />
+        <SkeletonBar className="h-3 w-4/5" />
+      </div>
+    </div>
+  );
+}
+

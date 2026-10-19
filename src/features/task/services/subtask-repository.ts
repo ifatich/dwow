@@ -18,13 +18,42 @@ export async function getSubtasksForTasks(taskIds: string[]): Promise<Map<string
   if (subRows.length === 0) return new Map();
   const subIds = subRows.map((s) => s.id);
 
-  // 2. Fetch all assignees
-  const assigneeRows = await db
-    .select({ subtaskId: subtaskAssignees.subtaskId, username: users.username })
-    .from(subtaskAssignees)
-    .innerJoin(users, eq(subtaskAssignees.staffId, users.id))
-    .where(inArray(subtaskAssignees.subtaskId, subIds))
-    .orderBy(asc(subtaskAssignees.id));
+  // 2, 3, 4: Parallel fetch of assignees, activity logs, and time contributions (1 roundtrip)
+  const [assigneeRows, logRows, timeRows] = await Promise.all([
+    db
+      .select({ subtaskId: subtaskAssignees.subtaskId, username: users.username })
+      .from(subtaskAssignees)
+      .innerJoin(users, eq(subtaskAssignees.staffId, users.id))
+      .where(inArray(subtaskAssignees.subtaskId, subIds))
+      .orderBy(asc(subtaskAssignees.id)),
+    db
+      .select({
+        id: activityLogs.id,
+        subtaskId: activityLogs.subtaskId,
+        taskId: activityLogs.taskId,
+        userId: activityLogs.userId,
+        staffName: users.username,
+        action: activityLogs.action,
+        timestamp: activityLogs.timestamp,
+        durationHours: activityLogs.durationHours,
+        durationCategory: activityLogs.durationCategory,
+        durationSeconds: activityLogs.durationSeconds,
+        note: activityLogs.note,
+      })
+      .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
+      .where(inArray(activityLogs.subtaskId, subIds))
+      .orderBy(asc(activityLogs.timestamp)),
+    db
+      .select({
+        subtaskId: timeContributions.subtaskId,
+        username: users.username,
+        hours: timeContributions.hours,
+      })
+      .from(timeContributions)
+      .innerJoin(users, eq(timeContributions.staffId, users.id))
+      .where(inArray(timeContributions.subtaskId, subIds)),
+  ]);
 
   const assigneesBySub = new Map<string, string[]>();
   for (const r of assigneeRows) {
@@ -32,26 +61,6 @@ export async function getSubtasksForTasks(taskIds: string[]): Promise<Map<string
     list.push(r.username);
     assigneesBySub.set(r.subtaskId, list);
   }
-
-  // 3. Fetch all activity logs
-  const logRows = await db
-    .select({
-      id: activityLogs.id,
-      subtaskId: activityLogs.subtaskId,
-      taskId: activityLogs.taskId,
-      userId: activityLogs.userId,
-      staffName: users.username,
-      action: activityLogs.action,
-      timestamp: activityLogs.timestamp,
-      durationHours: activityLogs.durationHours,
-      durationCategory: activityLogs.durationCategory,
-      durationSeconds: activityLogs.durationSeconds,
-      note: activityLogs.note,
-    })
-    .from(activityLogs)
-    .leftJoin(users, eq(activityLogs.userId, users.id))
-    .where(inArray(activityLogs.subtaskId, subIds))
-    .orderBy(asc(activityLogs.timestamp));
 
   const logsBySub = new Map<string, LogRow[]>();
   for (const r of logRows) {
@@ -67,17 +76,6 @@ export async function getSubtasksForTasks(taskIds: string[]): Promise<Map<string
     });
     logsBySub.set(r.subtaskId, list);
   }
-
-  // 4. Fetch all time contributions
-  const timeRows = await db
-    .select({
-      subtaskId: timeContributions.subtaskId,
-      username: users.username,
-      hours: timeContributions.hours,
-    })
-    .from(timeContributions)
-    .innerJoin(users, eq(timeContributions.staffId, users.id))
-    .where(inArray(timeContributions.subtaskId, subIds));
 
   const timeBySub = new Map<string, { username: string; hours: number }[]>();
   for (const r of timeRows) {
@@ -110,57 +108,8 @@ export async function getSubtasksForTasks(taskIds: string[]): Promise<Map<string
  * Get all subtasks for a task, with assignees and activity logs.
  */
 export async function getSubtasksByTaskId(taskId: string): Promise<Subtask[]> {
-  const rows = await db
-    .select()
-    .from(subtasks)
-    .where(eq(subtasks.taskId, taskId));
-
-  return Promise.all(rows.map(async (sub) => {
-    // Get assignees
-    const assigneeRows = await db
-      .select({ username: users.username })
-      .from(subtaskAssignees)
-      .innerJoin(users, eq(subtaskAssignees.staffId, users.id))
-      .where(eq(subtaskAssignees.subtaskId, sub.id))
-      .orderBy(asc(subtaskAssignees.id));
-
-    const assignees = assigneeRows.map((r) => r.username);
-
-    // Get activity logs with staff names
-    const logRows = await db
-      .select({
-        id: activityLogs.id,
-        subtaskId: activityLogs.subtaskId,
-        taskId: activityLogs.taskId,
-        userId: activityLogs.userId,
-        staffName: users.username,
-        action: activityLogs.action,
-        timestamp: activityLogs.timestamp,
-        durationHours: activityLogs.durationHours,
-        durationCategory: activityLogs.durationCategory,
-        durationSeconds: activityLogs.durationSeconds,
-        note: activityLogs.note,
-      })
-      .from(activityLogs)
-      .leftJoin(users, eq(activityLogs.userId, users.id))
-      .where(eq(activityLogs.subtaskId, sub.id))
-      .orderBy(asc(activityLogs.timestamp));
-
-    // Get time contributions
-    const timeRows = await db
-      .select({
-        username: users.username,
-        hours: timeContributions.hours,
-      })
-      .from(timeContributions)
-      .innerJoin(users, eq(timeContributions.staffId, users.id))
-      .where(eq(timeContributions.subtaskId, sub.id));
-
-    const assigneeSet = new Set(assignees.map((a) => a.toLowerCase()));
-    const filteredTimeRows = timeRows.filter((r) => assigneeSet.has(r.username.toLowerCase()));
-
-    return mapSubtask(sub, assignees, logRows, filteredTimeRows);
-  }));
+  const map = await getSubtasksForTasks([taskId]);
+  return map.get(taskId) || [];
 }
 
 /**
@@ -267,7 +216,7 @@ export async function updateSubtask(
 export async function updateSubtaskStatus(
   subtaskId: string,
   newStatus: SubtaskStatus,
-  userId?: string
+  _userId?: string
 ): Promise<Subtask | null> {
   const now = new Date().toISOString();
   const updateData: any = { status: newStatus, updatedAt: now };

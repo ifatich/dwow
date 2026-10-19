@@ -12,6 +12,39 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-6-0",
+    version: "v1.6.0",
+    date: "19 Okt 2026",
+    title: "Optimasi Performa Query Database & Container Architecture",
+    summary: "Mempercepat waktu pemuatan halaman Home dan Project hingga 7.8x lebih cepat melalui batching query database, pola Container Progressive Loading, dan Tab Visibility Guard.",
+    changes: [
+      {
+        type: "improvement",
+        text: "Batching Query Database: Mengeliminasi N+1 query loop pada task dan subtask, memangkas 27 HTTP round-trip ke Turso menjadi hanya 2–3 batch query paralel.",
+      },
+      {
+        type: "improvement",
+        text: "Container Architecture: Memecah halaman Home, Project, dan Task Detail menjadi container mandiri dengan skeleton terisolasi untuk menghilangkan blank screen saat memuat.",
+      },
+      {
+        type: "improvement",
+        text: "Parallel Query Sprint History: Menggabungkan 5 query database sekuensial di /api/sprints menjadi 1 batch Promise.all dan melonggarkan polling arsip ke 30 detik.",
+      },
+      {
+        type: "fix",
+        text: "Filter Sprint Riwayat Aktivitas: Mengaktifkan filter sprint pada audit trail /activity-history melalui join relasi projects dan menerapkan render progresif 50 item.",
+      },
+      {
+        type: "improvement",
+        text: "Tab Visibility Guard: Realtime sync otomatis dijeda saat tab browser diminimize atau tidak aktif, menghemat ratusan request tak terpakai dan bandwidth database.",
+      },
+      {
+        type: "improvement",
+        text: "Lazy Loading Charts: Komponen grafik di-load secara dinamis (next/dynamic) untuk meringankan bundle JavaScript awal halaman utama.",
+      },
+    ],
+  },
+  {
     id: "v1-5-0",
     version: "v1.5.0",
     date: "19 Okt 2026",

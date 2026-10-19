@@ -52,17 +52,25 @@ export function useRealtimeSync(onRefresh: () => void, intervalMs: number = 1000
       }
     }
 
-    // 3. Tab focus listener
+    // 3. Tab focus & visibility change listener
     window.addEventListener("focus", handleEvent);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        onRefresh();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    // 4. Periodic polling (fallback for background updates)
+    // 4. Periodic polling (fallback for background updates, paused when tab is hidden)
     const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       onRefresh();
     }, intervalMs);
 
     return () => {
       window.removeEventListener(EVENT_NAME, handleEvent);
       window.removeEventListener("focus", handleEvent);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(timer);
       channel?.close();
     };

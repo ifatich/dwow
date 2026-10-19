@@ -6,6 +6,7 @@ import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import BreadcrumbBar from "@/components/shared/breadcrumb-bar";
 import MetadataSection from "@/features/task/components/metadata-section";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
+import { ProjectMetadataSkeleton } from "@/components/shared/skeletons";
 
 interface ProjectPageProps {
   params: Promise<{ projectId: string }>;
@@ -44,7 +45,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       />
 
       <div className="flex-1">
-        {project && (
+        {!project ? (
+          <ProjectMetadataSkeleton />
+        ) : (
           <div className="max-w-[1280px] mx-auto px-xl pt-lg pb-xs">
             <div className="flex items-center gap-md flex-wrap mb-sm">
               <span className="font-mono text-[10px] uppercase tracking-[0.54px] text-ink/40 bg-surface-soft rounded-pill px-sm py-xxs">

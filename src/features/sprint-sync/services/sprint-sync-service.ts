@@ -756,7 +756,7 @@ export async function executeSprintSync(options: {
   }
 
   // Existing assignees lookup
-  let existingAssigneesSet = new Set<string>();
+  const existingAssigneesSet = new Set<string>();
   try {
     const assRes = await client.execute("SELECT subtask_id, staff_id FROM subtask_assignees");
     for (const a of assRes.rows as unknown as { subtask_id: string; staff_id: string }[]) {

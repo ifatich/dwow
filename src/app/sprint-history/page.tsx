@@ -25,7 +25,8 @@ export default function SprintHistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useRealtimeSync(fetchSprints, 5000);
+  // Polling santai 30 detik untuk data arsip riwayat sprint
+  useRealtimeSync(fetchSprints, 30000);
 
   const filteredSprints = useMemo(() => {
     let result = sprints;

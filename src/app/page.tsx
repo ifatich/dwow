@@ -1,20 +1,36 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import ProjectCard from "@/features/dashboard/components/project-card";
 import StatCard from "@/features/dashboard/components/stat-card";
 import DeadlineNotification from "@/components/shared/deadline-notification";
 import ReviewTaskCard from "@/features/dashboard/components/review-task-card";
-import TaskDistributionChart from "@/features/dashboard/components/task-distribution-chart";
-import SprintVelocityChart from "@/features/dashboard/components/sprint-velocity-chart";
-import WorkloadChart from "@/features/dashboard/components/workload-chart";
 import LeadPerformanceCard from "@/features/dashboard/components/lead-performance-card";
 import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { useRealtimeSync } from "@/lib/realtime-sync";
-import { DashboardSkeleton } from "@/components/shared/skeletons";
+import {
+  StatCardsSkeleton,
+  ChartsGridSkeleton,
+  LeadPerformanceSkeleton,
+  ProjectGridSkeleton,
+} from "@/components/shared/skeletons";
 import SprintSyncDialog from "@/features/sprint-sync/components/sprint-sync-dialog";
 import WhatsNewSection from "@/features/dashboard/components/whats-new-section";
+
+const TaskDistributionChart = dynamic(
+  () => import("@/features/dashboard/components/task-distribution-chart"),
+  { ssr: false, loading: () => <div className="bg-canvas border border-hairline rounded-lg p-lg h-[260px] animate-pulse shadow-xs" /> }
+);
+const SprintVelocityChart = dynamic(
+  () => import("@/features/dashboard/components/sprint-velocity-chart"),
+  { ssr: false, loading: () => <div className="bg-canvas border border-hairline rounded-lg p-lg h-[260px] animate-pulse shadow-xs" /> }
+);
+const WorkloadChart = dynamic(
+  () => import("@/features/dashboard/components/workload-chart"),
+  { ssr: false, loading: () => <div className="bg-canvas border border-hairline rounded-lg p-lg h-[280px] animate-pulse shadow-xs" /> }
+);
 
 interface DashboardData {
   activeSprint?: string;
@@ -32,11 +48,9 @@ export default function Home() {
   const username = currentUser?.username;
 
   const isReviewer = role === "lead" || role === "kadep" || role === "super_admin" || role === "kadiv";
-  const isAdmin = role === "super_admin";
   const isExecutive = role === "super_admin" || role === "kadep" || role === "kadiv";
 
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
@@ -44,30 +58,28 @@ export default function Home() {
     const params = new URLSearchParams({ role, username: username || "" });
     fetch(`/api/dashboard?${params}`)
       .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((d) => { setData(d); })
+      .catch(() => {});
+  }, [role, username]);
 
+  const fetchSpreadsheetInfo = useCallback(() => {
     fetch("/api/settings/spreadsheet")
       .then((r) => r.json())
       .then((d) => { if (d.lastSyncAt) setLastSync(d.lastSyncAt); })
       .catch(() => {});
-  }, [role, username]);
+  }, []);
+
+  useEffect(() => {
+    fetchSpreadsheetInfo();
+  }, [fetchSpreadsheetInfo]);
 
   useRealtimeSync(fetchDashboardData, 5000);
 
-  if (!data) {
-    return (
-      <div className="flex flex-col flex-1">
-        <PageHeader middle={<span className="font-mono text-[11px] uppercase tracking-[0.54px] text-ink/30 bg-surface-soft rounded-pill px-sm py-xxs">Dashboard</span>}><HeaderAvatar /></PageHeader>
-        <main className="flex-1"><DashboardSkeleton /></main>
-      </div>
-    );
-  }
-
-  const stats = data.stats || { totalTasks: 0, inProgressCount: 0, overdueCount: 0, doneCount: 0, unassignedSubtasksCount: 0 };
-  const projects = data.projects || [];
-  const reviewTasks = data.reviewTasks || [];
-  const workload = data.workload || [];
+  const isLoaded = Boolean(data);
+  const stats = data?.stats || { totalTasks: 0, inProgressCount: 0, overdueCount: 0, doneCount: 0, unassignedSubtasksCount: 0 };
+  const projects = data?.projects || [];
+  const reviewTasks = data?.reviewTasks || [];
+  const workload = data?.workload || [];
   const userTasksForDeadline = reviewTasks as any[];
 
   return (
@@ -79,8 +91,10 @@ export default function Home() {
         middle={
           <div suppressHydrationWarning className="flex items-center gap-md">
             <span className="font-mono text-[11px] uppercase tracking-[0.54px] text-ink/30 bg-surface-soft rounded-pill px-sm py-xxs">Dashboard</span>
-            {data?.activeSprint && (
+            {data?.activeSprint ? (
               <span className="font-mono text-[11px] uppercase tracking-[0.54px] text-green-700 bg-green-100 rounded-pill px-sm py-xxs">{data.activeSprint}</span>
+            ) : (
+              <span className="font-mono text-[11px] uppercase tracking-[0.54px] text-ink/30 bg-surface-soft rounded-pill px-sm py-xxs animate-pulse">Sprint ...</span>
             )}
           </div>
         }
@@ -157,38 +171,50 @@ export default function Home() {
           )}
 
           {/* ========================================================================
-           * Section 1: Executive Stat Cards (Total Tugas, In Progress, Overdue, Selesai)
+           * Section 1: Executive Stat Cards Container
            * ======================================================================== */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-md mb-xxl stat-card-grid">
-            <StatCard label="Total Tugas" value={stats.totalTasks} accent="default" subtitle={`${stats.doneCount} selesai`} />
-            <StatCard label="In Progress" value={stats.inProgressCount} accent="blue" subtitle="Sedang dikerjakan" />
-            <StatCard label="Overdue" value={stats.overdueCount} accent="red" subtitle="Melewati tenggat" />
-            <StatCard label="Selesai" value={stats.doneCount} accent="green" subtitle={`${stats.totalTasks > 0 ? Math.round((stats.doneCount / stats.totalTasks) * 100) : 0}% completion`} />
-          </div>
+          {!isLoaded ? (
+            <StatCardsSkeleton />
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-md mb-xxl stat-card-grid">
+              <StatCard label="Total Tugas" value={stats.totalTasks} accent="default" subtitle={`${stats.doneCount} selesai`} />
+              <StatCard label="In Progress" value={stats.inProgressCount} accent="blue" subtitle="Sedang dikerjakan" />
+              <StatCard label="Overdue" value={stats.overdueCount} accent="red" subtitle="Melewati tenggat" />
+              <StatCard label="Selesai" value={stats.doneCount} accent="green" subtitle={`${stats.totalTasks > 0 ? Math.round((stats.doneCount / stats.totalTasks) * 100) : 0}% completion`} />
+            </div>
+          )}
 
           {/* ========================================================================
-           * Section 3A: Chart Distribusi Status & Section 3B: Chart Velocity Sprint
+           * Section 3: Charts Grid Container
            * ======================================================================== */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-md mb-xxl">
-            {/* Section 3A: Chart Distribusi Status */}
-            <TaskDistributionChart tasks={(data.statusDistribution || {}) as any} />
-            {/* Section 3B: Chart Velocity Sprint */}
-            <SprintVelocityChart data={(data as any).velocity} />
-          </div>
+          {!isLoaded ? (
+            <ChartsGridSkeleton />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-md mb-xxl">
+              <TaskDistributionChart tasks={(data?.statusDistribution || {}) as any} />
+              <SprintVelocityChart data={(data as any)?.velocity} />
+            </div>
+          )}
 
           {/* ========================================================================
-           * Section 4B: Performa Lead Proyek & Beban Kerja Tim (Di atas Proyek Aktif)
+           * Section 4B: Performa Lead Proyek Container
            * ======================================================================== */}
-          <LeadPerformanceCard leads={(data as any).leadsPerformance || []} />
+          {!isLoaded ? (
+            <LeadPerformanceSkeleton />
+          ) : (
+            <LeadPerformanceCard leads={(data as any)?.leadsPerformance || []} />
+          )}
 
           {/* ========================================================================
-           * Section 2: Daftar Proyek ("Proyek Saya" untuk Staff / "Proyek Aktif" untuk Lead/Admin)
+           * Section 2: Daftar Proyek Container
            * ======================================================================== */}
           <div className="mb-xxl">
             <h2 className="text-[24px] font-[540] text-ink mb-lg">
               {role === "staff" ? "Proyek Saya" : "Proyek Aktif"}
             </h2>
-            {projects.length === 0 ? (
+            {!isLoaded ? (
+              <ProjectGridSkeleton />
+            ) : projects.length === 0 ? (
               <div className="text-[13px] text-ink/30 py-xxl text-center bg-surface-soft/30 rounded-lg border border-hairline">
                 Belum ada proyek dengan tugas untuk Anda.
               </div>
@@ -202,16 +228,20 @@ export default function Home() {
           </div>
 
           {/* ========================================================================
-           * Section 4: Chart Beban Kerja (Per Staff — Hanya untuk non-Executive)
+           * Section 4: Chart Beban Kerja Container
            * ======================================================================== */}
           {!isExecutive && (
             <div className="mb-xxl">
-              <WorkloadChart tasks={workload as any} currentUser={role === "staff" ? currentUser?.username : undefined} />
+              {!isLoaded ? (
+                <div className="bg-canvas border border-hairline rounded-lg p-lg h-[280px] animate-pulse shadow-xs" />
+              ) : (
+                <WorkloadChart tasks={workload as any} currentUser={role === "staff" ? currentUser?.username : undefined} />
+              )}
             </div>
           )}
 
           {/* ========================================================================
-           * Section 5: Daftar Perlu Review (Khusus Role Lead Proyek)
+           * Section 5: Daftar Perlu Review Container
            * ======================================================================== */}
           {reviewTasks.length > 0 && role === "lead" && (
             <div className="mt-xxl">
@@ -225,7 +255,7 @@ export default function Home() {
           )}
 
           {/* ========================================================================
-           * Section 6: What's New & Log Aktivitas Pembaruan Sistem
+           * Section 6: What's New & Log Aktivitas Pembaruan Sistem (Selalu Tampil Instan)
            * ======================================================================== */}
           <WhatsNewSection />
         </div>
@@ -235,7 +265,10 @@ export default function Home() {
       <SprintSyncDialog
         open={syncDialogOpen}
         onClose={() => setSyncDialogOpen(false)}
-        onSuccess={fetchDashboardData}
+        onSuccess={() => {
+          fetchDashboardData();
+          fetchSpreadsheetInfo();
+        }}
       />
     </div>
   );

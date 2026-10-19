@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { activityLogs, users, subtasks, tasks } from "@/db/schema";
+import { activityLogs, users, subtasks, tasks, projects } from "@/db/schema";
 import { desc, asc, eq } from "drizzle-orm";
 
 type LogAction =
@@ -168,11 +168,13 @@ export async function getAllActivityLogs(options?: {
       note: activityLogs.note,
       subtaskTitle: subtasks.title,
       taskTitle: tasks.title,
+      sprint: projects.sprint,
     })
     .from(activityLogs)
     .leftJoin(users, eq(activityLogs.userId, users.id))
     .leftJoin(subtasks, eq(activityLogs.subtaskId, subtasks.id))
     .leftJoin(tasks, eq(activityLogs.taskId, tasks.id))
+    .leftJoin(projects, eq(tasks.projectId, projects.id))
     .orderBy(desc(activityLogs.timestamp))
     .limit(options?.limit ?? 500);
 

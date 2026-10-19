@@ -22,6 +22,7 @@ interface ActivityLogRow {
   note: string | null;
   subtaskTitle: string | null;
   taskTitle: string | null;
+  sprint?: string | null;
 }
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
@@ -50,6 +51,8 @@ export default function ActivityHistoryPage() {
   const [selectedUser, setSelectedUser] = useState("all");
   const [selectedSprint, setSelectedSprint] = useState("all");
 
+  const [visibleCount, setVisibleCount] = useState(50);
+
   // Fetch logs dari API
   useEffect(() => {
     async function fetchLogs() {
@@ -69,6 +72,9 @@ export default function ActivityHistoryPage() {
   const filtered = useMemo(() => {
     let result = logs;
     if (filter !== "all") result = result.filter((l) => l.action === filter);
+    if (selectedSprint !== "all") {
+      result = result.filter((l) => l.sprint === selectedSprint);
+    }
     if (selectedUser !== "all") {
       const userList = selectedUser.split(",").filter(Boolean).map((u) => u.toLowerCase());
       result = result.filter((l) => {
@@ -88,7 +94,9 @@ export default function ActivityHistoryPage() {
       );
     }
     return result;
-  }, [logs, filter, search, selectedUser]);
+  }, [logs, filter, search, selectedUser, selectedSprint]);
+
+  const visibleLogs = filtered.slice(0, visibleCount);
 
   return (
     <div className="flex flex-col flex-1">
@@ -156,7 +164,7 @@ export default function ActivityHistoryPage() {
             </div>
           ) : (
             <div className="space-y-xs">
-              {filtered.map((log) => {
+              {visibleLogs.map((log) => {
                 const action = ACTION_LABELS[log.action] || { label: log.action, color: "bg-slate-50 text-slate-500" };
                 const time = new Date(log.timestamp);
                 return (
@@ -178,6 +186,12 @@ export default function ActivityHistoryPage() {
                         <span className="text-[12px] font-[450] text-ink/60">{log.staffName || "—"}</span>
                         <span className="text-ink/20">·</span>
                         <span className="text-[12px] font-[320] text-ink/40">{log.subtaskTitle || "—"}</span>
+                        {log.sprint && (
+                          <>
+                            <span className="text-ink/20">·</span>
+                            <span className="font-mono text-[10px] text-ink/40 bg-surface-soft px-xs rounded">{log.sprint}</span>
+                          </>
+                        )}
                       </div>
                       <p className="text-[11px] font-[320] text-ink/30">
                         Task: {log.taskTitle || "—"}
@@ -205,6 +219,21 @@ export default function ActivityHistoryPage() {
                   </div>
                 );
               })}
+
+              {filtered.length > visibleCount && (
+                <div className="pt-md text-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((prev) => prev + 50)}
+                    className="h-[36px] px-xl rounded-pill border border-hairline bg-surface-soft hover:bg-hairline text-[13px] font-[500] text-ink transition-colors cursor-pointer shadow-xs inline-flex items-center gap-xs"
+                  >
+                    <span>Tampilkan Lebih Banyak ({filtered.length - visibleCount} tersisa)</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

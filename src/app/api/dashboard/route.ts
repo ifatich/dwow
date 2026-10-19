@@ -11,12 +11,25 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get("role") || "staff";
     const username = searchParams.get("username") || "";
 
-    // Fetch all data
-    const allUsers = await db.select().from(users);
-    const allProjects = await db.select().from(projects);
-    const allTasks = await db.select().from(tasks);
-    const allSubtasks = await db.select().from(subtasks);
-    const allAssignees = await db.select().from(subtaskAssignees);
+    // Fetch all data in parallel (1 roundtrip)
+    const [allUsers, allProjects, allTasks, allSubtasks, allAssignees, teamAssignments] = await Promise.all([
+      db.select().from(users),
+      db.select().from(projects),
+      db.select().from(tasks),
+      db.select().from(subtasks),
+      db.select().from(subtaskAssignees),
+      rawQuery<{
+        lead_id: string;
+        staff_id: string;
+        nama: string;
+        username: string;
+        capacity_hours_per_month: number;
+      }>(`
+        SELECT lsa.lead_id, lsa.staff_id, u.nama, u.username, u.capacity_hours_per_month
+        FROM lead_staff_assignments lsa
+        JOIN users u ON lsa.staff_id = u.id
+      `),
+    ]);
 
     const userMap = new Map(allUsers.map((u) => [u.id, u]));
     const userObj = allUsers.find((u) => u.username === username || u.id === username);
@@ -228,18 +241,7 @@ export async function GET(request: NextRequest) {
     });
     const unassignedSubtasksCount = activeSubtasks.filter((s) => !assignedSubtaskIds.has(s.id)).length;
 
-    // Ambil data penugasan staf per lead dari tabel lead_staff_assignments
-    const teamAssignments = await rawQuery<{
-      lead_id: string;
-      staff_id: string;
-      nama: string;
-      username: string;
-      capacity_hours_per_month: number;
-    }>(`
-      SELECT lsa.lead_id, lsa.staff_id, u.nama, u.username, u.capacity_hours_per_month
-      FROM lead_staff_assignments lsa
-      JOIN users u ON lsa.staff_id = u.id
-    `);
+
 
     const assignedStaffByLead = new Map<string, Array<{
       id: string;

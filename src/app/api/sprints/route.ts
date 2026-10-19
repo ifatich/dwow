@@ -36,21 +36,20 @@ interface SprintGroup {
  */
 export async function GET(_request: NextRequest) {
   try {
-    const allProjects = await db.select().from(projects).orderBy(projects.sprint as any);
-
-    // Get all tasks & subtasks for all projects
-    const allTasks = await db.select().from(tasks);
-    const allSubtasks = await db.select().from(subtasks);
-    const allUsers = await db.select().from(users);
-
-    // Get subtask assignees
-    const allAssignees = await db
-      .select({
-        subtaskId: subtaskAssignees.subtaskId,
-        username: users.username,
-      })
-      .from(subtaskAssignees)
-      .innerJoin(users, eq(subtaskAssignees.staffId, users.id));
+    // Ambil data projects, tasks, subtasks, users, dan assignees secara paralel (1 roundtrip)
+    const [allProjects, allTasks, allSubtasks, allUsers, allAssignees] = await Promise.all([
+      db.select().from(projects).orderBy(projects.sprint as any),
+      db.select().from(tasks),
+      db.select().from(subtasks),
+      db.select().from(users),
+      db
+        .select({
+          subtaskId: subtaskAssignees.subtaskId,
+          username: users.username,
+        })
+        .from(subtaskAssignees)
+        .innerJoin(users, eq(subtaskAssignees.staffId, users.id)),
+    ]);
 
     const assigneesBySubtask = new Map<string, string[]>();
     for (const a of allAssignees) {

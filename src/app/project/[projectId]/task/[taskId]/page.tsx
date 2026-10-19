@@ -57,16 +57,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
       .finally(() => setLoading(false));
   }, [taskId]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col flex-1">
-        <PageHeader><HeaderAvatar /></PageHeader>
-        <main className="flex-1"><TaskDetailSkeleton /></main>
-      </div>
-    );
-  }
-
-  if (!task) {
+  if (!loading && !task) {
     return (
       <div className="flex flex-col flex-1">
         <header className="sticky top-0 z-10 bg-canvas border-b border-hairline">
@@ -85,24 +76,29 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
 
   const completed = subtasks.filter((s) => s.done).length;
   const total = subtasks.length;
-  const deadlineInfo = getDeadlineStatus(task.deadline, task.status);
+  const deadlineInfo = task ? getDeadlineStatus(task.deadline, task.status) : null;
 
   return (
     <div className="flex flex-col flex-1">
       <PageHeader>
-        <DeadlineNotification tasks={[task]} />
+        {task && <DeadlineNotification tasks={[task]} />}
         <HeaderAvatar />
       </PageHeader>
 
       <BreadcrumbBar
         items={[
           { label: "Dashboard", href: "/" },
-          { label: task.project, href: `/project/${task.projectId || projectId}` },
-          { label: task.title },
+          { label: task?.project || "...", href: `/project/${task?.projectId || projectId}` },
+          { label: task?.title || "..." },
         ]}
       />
 
-      <main className="flex-1 overflow-hidden">
+      {loading || !task ? (
+        <main className="flex-1">
+          <TaskDetailSkeleton />
+        </main>
+      ) : (
+        <main className="flex-1 overflow-hidden">
         <div className="max-w-[1280px] mx-auto px-xl py-lg">
           {/* Task info header */}
           <div className="mb-lg">
@@ -165,6 +161,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
           </div>
         </div>
       </main>
+      )}
     </div>
   );
 }

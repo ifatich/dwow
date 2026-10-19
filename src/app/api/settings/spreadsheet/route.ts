@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     if (body.spreadsheetId !== undefined) {
-      let rawId = (body.spreadsheetId || "").trim();
+      const rawId = (body.spreadsheetId || "").trim();
       const match = rawId.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
       spreadsheetConfig.spreadsheetId = match ? match[1] : rawId;
     }
