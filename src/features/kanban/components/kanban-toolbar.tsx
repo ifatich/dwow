@@ -1,6 +1,7 @@
 "use client";
 
 import { TaskPriority } from "@/lib/types";
+import CustomDropdown from "@/components/ui/custom-dropdown";
 
 export interface KanbanFilters {
   search: string;
@@ -89,23 +90,18 @@ export default function KanbanToolbar({
 
       {/* Assignee filter dropdown */}
       {assignees.length > 0 && (
-        <select
+        <CustomDropdown
+          label="Staff:"
           value={filters.assignee}
-          onChange={(e) => update({ assignee: e.target.value })}
-          className="h-[40px] px-md rounded-md border border-hairline bg-canvas text-[14px] font-[450] text-ink focus:outline-none focus:border-ink/30 transition-colors cursor-pointer appearance-none pr-xxl"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-opacity='0.4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "right 12px center",
-          }}
-        >
-          <option value="">Semua Staff</option>
-          {assignees.map((a) => (
-            <option key={a} value={a}>
-              {a.charAt(0).toUpperCase() + a.slice(1)}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => update({ assignee: val })}
+          allOptionLabel="Semua Staff"
+          allOptionValue=""
+          minWidth="150px"
+          options={assignees.map((a) => ({
+            value: a,
+            label: a.charAt(0).toUpperCase() + a.slice(1),
+          }))}
+        />
       )}
 
       {/* Clear filters */}

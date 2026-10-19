@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { AvailableSprint, SprintSyncPreview, SprintSyncResult } from "../types";
+import CustomDropdown from "@/components/ui/custom-dropdown";
 
 interface SprintSyncDialogProps {
   open: boolean;
@@ -348,22 +349,23 @@ export default function SprintSyncDialog({ open, onClose, onSuccess }: SprintSyn
                   Pilih Sprint yang akan Disinkronkan
                 </label>
                 <div className="flex gap-sm items-center">
-                  <select
+                  <CustomDropdown
+                    className="flex-1"
                     value={selectedSprint}
-                    onChange={(e) => {
-                      setSelectedSprint(e.target.value);
+                    onChange={(val) => {
+                      setSelectedSprint(val);
                       setPreview(null);
                     }}
                     disabled={loadingSprints || loadingPreview || executing}
-                    className="flex-1 h-[42px] rounded-lg border border-hairline px-md text-[14px] bg-canvas text-ink cursor-pointer focus:outline-primary"
-                  >
-                    {availableSprints.map((s) => (
-                      <option key={s.identifier} value={s.identifier}>
-                        {s.label} {s.isInDatabase ? "(Sudah di DB)" : `(${s.rowCount} baris sheet)`}
-                      </option>
-                    ))}
-                    <option value="custom">+ Input Nomor Sprint Lain...</option>
-                  </select>
+                    options={[
+                      ...availableSprints.map((s) => ({
+                        value: s.identifier,
+                        label: `${s.label} ${s.isInDatabase ? "(Sudah di DB)" : `(${s.rowCount} baris sheet)`}`,
+                        badge: s.isInDatabase ? "DB" : undefined,
+                      })),
+                      { value: "custom", label: "+ Input Nomor Sprint Lain..." },
+                    ]}
+                  />
 
                   <button
                     type="button"

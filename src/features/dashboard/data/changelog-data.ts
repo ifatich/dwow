@@ -12,6 +12,27 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-6-2",
+    version: "v1.6.2",
+    date: "19 Okt 2026",
+    title: "Standardisasi Dropdown Custom & Default Sprint Aktif",
+    summary: "Menyeragamkan seluruh komponen dropdown di Kanban dan dialog agar konsisten dengan style TaskForge serta memastikan filter sprint di seluruh aplikasi default ke sprint yang sedang aktif.",
+    changes: [
+      {
+        type: "improvement",
+        text: "Default Sprint Aktif: Seluruh filter sprint di halaman Riwayat Sprint, Laporan Kinerja, Riwayat Aktivitas, dan Metrik Individu kini otomatis memilih sprint yang sedang aktif (terbaru) saat halaman pertama kali dimuat.",
+      },
+      {
+        type: "improvement",
+        text: "Standardisasi CustomDropdown: Menggantikan elemen native <select> pada KanbanToolbar, SubtaskKanban, dan SprintSyncDialog dengan komponen CustomDropdown terstandarisasi lengkap dengan popover card, checkmark, dan chevron interaktif.",
+      },
+      {
+        type: "improvement",
+        text: "Badge Indikator Sprint Aktif: Menambahkan badge visual 'Aktif' pada opsi sprint terbaru di dalam daftar dropdown.",
+      },
+    ],
+  },
+  {
     id: "v1-6-1",
     version: "v1.6.1",
     date: "19 Okt 2026",

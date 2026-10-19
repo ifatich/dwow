@@ -56,6 +56,20 @@ export default function GlobalFilterToolbar({
 
   const userRef = useRef<HTMLDivElement>(null);
   const sprintRef = useRef<HTMLDivElement>(null);
+  const hasAutoSelectedSprint = useRef(false);
+
+  // Auto-select sprint yang sedang aktif (terbaru) by default
+  useEffect(() => {
+    if (!hasAutoSelectedSprint.current && sprintsList.length > 0) {
+      hasAutoSelectedSprint.current = true;
+      if (sprintValue === "all" || !sprintValue) {
+        const activeSprint = sprintsList[0];
+        if (activeSprint) {
+          onSprintChange(activeSprint);
+        }
+      }
+    }
+  }, [sprintsList, sprintValue, onSprintChange]);
 
   useEffect(() => {
     // Fetch users for dropdown with fallback parsing
@@ -342,8 +356,9 @@ export default function GlobalFilterToolbar({
                       )}
                     </button>
                     <div className="my-xs border-t border-hairline-soft" />
-                    {sprintsList.map((s) => {
+                    {sprintsList.map((s, idx) => {
                       const isSelected = sprintValue === s;
+                      const isLatestActive = idx === 0;
                       return (
                         <button
                           key={s}
@@ -355,7 +370,14 @@ export default function GlobalFilterToolbar({
                           className={`w-full text-left px-sm py-1.5 rounded-md text-[13px] font-[480] hover:bg-surface-soft/70 cursor-pointer transition-all flex items-center justify-between gap-sm ${isSelected ? "text-ink font-[540] bg-surface-soft/60" : "text-ink/70"
                             }`}
                         >
-                          <span>{s}</span>
+                          <div className="flex items-center gap-xs">
+                            <span>{s}</span>
+                            {isLatestActive && (
+                              <span className="text-[10px] font-[540] text-green-700 bg-green-100 px-[6px] py-[1px] rounded-pill">
+                                Aktif
+                              </span>
+                            )}
+                          </div>
                           {isSelected && (
                             <svg width="12" height="10" viewBox="0 0 12 10" fill="none" className="text-ink flex-shrink-0">
                               <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -369,12 +391,12 @@ export default function GlobalFilterToolbar({
               </div>
             )}
 
-            {(userValue !== "all" || sprintValue !== "all") && (
+            {(userValue !== "all" || sprintValue !== (sprintsList[0] || "all")) && (
               <button
                 type="button"
                 onClick={() => {
                   onUserChange("all");
-                  onSprintChange("all");
+                  onSprintChange(sprintsList[0] || "all");
                 }}
                 className="text-[11px] font-[450] text-red-600 hover:underline cursor-pointer ml-xs"
               >

@@ -23,6 +23,7 @@ import SubtaskDetailModal from "@/features/task/components/subtask-detail-modal"
 import StaffAssignmentHistoryDialog from "@/features/task/components/staff-assignment-history-dialog";
 import { useTimerCountdown } from "@/features/task/hooks/use-timer-countdown";
 import { notifyRealtimeSync } from "@/lib/realtime-sync";
+import CustomDropdown from "@/components/ui/custom-dropdown";
 
 const SUBTASK_COLUMNS: { id: SubtaskStatus; label: string; accent: string }[] = [
   { id: "to_do", label: "To Do", accent: "bg-hairline" },
@@ -665,23 +666,18 @@ export default function SubtaskKanban({
         </div>
 
         {uniqueAssignees.length > 0 && (
-          <select
+          <CustomDropdown
+            label="Staff:"
             value={filters.assignee}
-            onChange={(e) => setFilters((prev) => ({ ...prev, assignee: e.target.value }))}
-            className="h-[40px] px-md rounded-md border border-hairline bg-canvas text-[14px] font-[450] text-ink focus:outline-none focus:border-ink/30 transition-colors cursor-pointer appearance-none pr-xxl"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-opacity='0.4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "right 12px center",
-            }}
-          >
-            <option value="">Semua Staff</option>
-            {uniqueAssignees.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setFilters((prev) => ({ ...prev, assignee: val }))}
+            allOptionLabel="Semua Staff"
+            allOptionValue=""
+            minWidth="150px"
+            options={uniqueAssignees.map((name) => ({
+              value: name,
+              label: name,
+            }))}
+          />
         )}
 
         {(filters.search || filters.assignee) && (

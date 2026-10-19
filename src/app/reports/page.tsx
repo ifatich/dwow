@@ -43,7 +43,13 @@ export default function ReportsPage() {
     ])
       .then(([rep, spr]) => {
         setData(rep);
-        if (Array.isArray(spr)) setSprintData(spr);
+        if (Array.isArray(spr)) {
+          setSprintData(spr);
+          const active = spr.find((s: any) => s.isActive)?.sprint || spr[0]?.sprint;
+          if (active) {
+            setSelectedSprint((prev) => (prev === "all" ? active : prev));
+          }
+        }
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -80,6 +86,7 @@ export default function ReportsPage() {
             onUserChange={setSelectedUser}
             sprintValue={selectedSprint}
             onSprintChange={setSelectedSprint}
+            sprintsList={sprintData.map((s) => s.sprint).filter(Boolean)}
           />
 
           {/* Filter & View Controls */}

@@ -20,7 +20,13 @@ export default function SprintHistoryPage() {
     fetch("/api/sprints")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setSprints(data);
+        if (Array.isArray(data)) {
+          setSprints(data);
+          const active = data.find((s) => s.isActive)?.sprint || data[0]?.sprint;
+          if (active) {
+            setSelectedSprint((prev) => (prev === "all" ? active : prev));
+          }
+        }
       })
       .finally(() => setLoading(false));
   }, []);
