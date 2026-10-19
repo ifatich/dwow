@@ -6,6 +6,7 @@
 import { startTimer, stopTimer, getActiveTimer } from "./timer-store";
 import type { ActiveTimer } from "./timer-store";
 import type { ActivityLogEntry, StaffTimeContribution } from "@/lib/types";
+import { calculateWorkingDurationMs } from "@/lib/working-hours";
 
 let idCounter = Date.now();
 
@@ -14,12 +15,13 @@ function generateLogId(): string {
 }
 
 /**
- * Menghitung durasi dalam jam dari dua timestamp ISO.
+ * Menghitung durasi dalam jam dari dua timestamp ISO (hanya jam kerja aktif).
  */
 function calcDurationHours(startedAt: string, stoppedAt: string): number {
   const start = new Date(startedAt).getTime();
   const stop = new Date(stoppedAt).getTime();
-  const hours = (stop - start) / (1000 * 60 * 60);
+  const workingMs = calculateWorkingDurationMs(start, stop);
+  const hours = workingMs / (1000 * 60 * 60);
   return Math.round(hours * 10) / 10; // bulatkan ke 1 desimal
 }
 

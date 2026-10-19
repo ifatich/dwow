@@ -35,10 +35,13 @@ const STATUS_LABEL: Record<string, string> = {
   to_do: "To Do", in_progress: "In Progress", review: "Review", done: "Done",
 };
 
-/** Allowed actions per subtask status — forward flow only for Staff */
+/** Allowed actions per subtask status */
 const SUBTASK_ACTIONS: Record<SubtaskStatus, { to: SubtaskStatus; label: string; icon: string; variant: string }[]> = {
   to_do: [{ to: "in_progress", label: "Mulai", icon: "play", variant: "blue" }],
-  in_progress: [{ to: "review", label: "Ajukan Review", icon: "send", variant: "amber" }],
+  in_progress: [
+    { to: "review", label: "Ajukan Review", icon: "send", variant: "amber" },
+    { to: "to_do", label: "Ke To Do", icon: "undo", variant: "gray" },
+  ],
   review: [
     { to: "done", label: "Setujui", icon: "check", variant: "green" },
     { to: "in_progress", label: "Revisi", icon: "refresh", variant: "red" },
@@ -51,6 +54,7 @@ const ICON_SVG: Record<string, string> = {
   send: "M1 1l16 7-16 7 4-7-4-7z",
   check: "M2 6l3 3 6-6",
   refresh: "M14 8a6 6 0 01-6 6 6 6 0 01-6-6 6 6 0 016-6v2M14 8h-4M14 8V4",
+  undo: "M3 9h10a4 4 0 0 1 4 4v1M3 9l4-4M3 9l4 4",
 };
 
 interface SubtaskCardViewProps {
@@ -157,20 +161,26 @@ function SubtaskCardView({
         <div className="px-md pb-xs">
           <div className={`flex items-center gap-xs rounded-md px-sm py-xxs text-[10px] font-[480] ${timer.isOverdue
             ? "bg-red-50 text-red-600 border border-red-200"
-            : "bg-blue-50 text-blue-600 border border-blue-100"
+            : !timer.isWorkingHours
+              ? "bg-amber-50/80 text-amber-800 border border-amber-200"
+              : "bg-blue-50 text-blue-600 border border-blue-100"
             }`}>
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={timer.isOverdue ? "animate-pulse" : ""}>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={timer.isWorkingHours && timer.isOverdue ? "animate-pulse" : ""}>
               <circle cx="5" cy="5" r="4" stroke="currentColor" strokeWidth="1" />
               <path d="M5 2.5V5L6.5 6.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
             </svg>
             <span>⏱ {timer.display}</span>
             <span className="opacity-40">/</span>
             <span>est {subtask.workloadHours}j</span>
-            {timer.isOverdue && (
+            {!timer.isWorkingHours ? (
+              <span className="ml-auto rounded-pill bg-amber-200/80 text-amber-900 px-xs text-[9px] font-[540]" title="Timer dijeda otomatis di luar jam kerja (Senin–Jumat, 07:30–16:30 WIB)">
+                ⏸ Jeda
+              </span>
+            ) : timer.isOverdue ? (
               <span className="ml-auto rounded-pill bg-red-600 text-white px-xs text-[9px] font-[540]">
                 Overdue
               </span>
-            )}
+            ) : null}
           </div>
         </div>
       )}
@@ -195,7 +205,8 @@ function SubtaskCardView({
                 } ${a.variant === "green" ? "bg-green-100 text-green-700 hover:bg-green-200"
                   : a.variant === "red" ? "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
                     : a.variant === "amber" ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                      : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      : a.variant === "gray" ? "bg-surface-soft text-ink/70 hover:bg-hairline hover:text-ink border border-hairline-soft"
+                        : "bg-blue-50 text-blue-700 hover:bg-blue-100"
                 }`}
             >
               {pending ? (

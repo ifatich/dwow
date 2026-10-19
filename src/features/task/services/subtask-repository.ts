@@ -274,7 +274,7 @@ export async function updateSubtaskStatus(
 
   if (newStatus === "done") {
     updateData.done = true;
-  } else if (newStatus === "in_progress" || newStatus === "review") {
+  } else {
     updateData.done = false;
   }
 

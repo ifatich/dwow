@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { subtasks, tasks, activityLogs, timeContributions, users } from "@/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { auth } from "@/features/auth/services/auth";
+import { calculateWorkingDurationMs } from "@/lib/working-hours";
 import type { NextResponse } from "next/server";
 import type { SubtaskStatus } from "@/lib/types";
 
@@ -61,7 +62,8 @@ async function computeDurationSinceLastStart(
 
   const startedAt = new Date(lastStartTimestamp).getTime();
   const now = Date.now();
-  const seconds = Math.round((now - startedAt) / 1000);
+  const workingMs = calculateWorkingDurationMs(startedAt, now);
+  const seconds = Math.round(workingMs / 1000);
   return { durationSeconds: Math.max(seconds, 0), userId };
 }
 
@@ -239,12 +241,36 @@ export const PATCH = withErrorHandler(async (
     );
   }
 
+  if (oldStatus === "in_progress" && newStatus === "to_do") {
+    // Hitung & simpan akumulasi durasi aktif sebelum subtask dikembalikan ke to_do
+    for (const assignee of targetSubtask.assignees) {
+      const { durationSeconds, userId } = await computeDurationSinceLastStart(subtaskId, assignee);
+      if (userId && durationSeconds > 0) {
+        const durationHours = Math.round((durationSeconds / 3600) * 10) / 10;
+        if (durationHours > 0.001) {
+          await recordTimeContribution(subtaskId, userId, durationHours);
+        }
+      }
+    }
+
+    const note = (evidence && evidence.trim().length > 0)
+      ? evidence.trim()
+      : `Subtask "${targetSubtask.title}" dikembalikan ke To Do oleh ${staffName}`;
+
+    // Aksi "paused" menghentikan timer secara resmi
+    await logSubtaskActivity(
+      subtaskId, staffName, "paused",
+      note, "work", undefined, parentRow.id
+    );
+  }
+
   // Fallback: log transisi status lainnya
   if (
     !(oldStatus === "to_do" && newStatus === "in_progress") &&
     !(oldStatus === "in_progress" && newStatus === "review") &&
     !(oldStatus === "review" && newStatus === "in_progress") &&
-    !(oldStatus === "review" && newStatus === "done")
+    !(oldStatus === "review" && newStatus === "done") &&
+    !(oldStatus === "in_progress" && newStatus === "to_do")
   ) {
     await logSubtaskActivity(
       subtaskId, staffName, "started",

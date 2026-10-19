@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { ActivityLogEntry } from "@/lib/types";
+import { calculateWorkingDurationMs, isWithinWorkingHours } from "@/lib/working-hours";
 
 interface UseTimerCountdownResult {
   elapsedMinutes: number;
   isOverdue: boolean;
   remainingMinutes: number;
   display: string;
+  isWorkingHours: boolean;
 }
 
 /**
@@ -66,6 +68,8 @@ export function useTimerCountdown(
     return () => clearInterval(interval);
   }, [isActive]);
 
+  const isWorkingHours = isWithinWorkingHours(now);
+
   // Jika tidak aktif dan tidak ada activity log, tampilkan 0
   if (!isActive && (!activityLog || activityLog.length === 0)) {
     return {
@@ -73,11 +77,13 @@ export function useTimerCountdown(
       isOverdue: false,
       remainingMinutes: estimatedHours * 60,
       display: `0j 00m 00d`,
+      isWorkingHours,
     };
   }
 
-  const elapsedMs = Math.max(0, now - startTime);
-  const elapsedMinutes = Math.floor(elapsedMs / 60000);
+  // Hitung durasi aktif hanya pada jam kerja (Senin-Jumat 07:30 - 16:30 WIB)
+  const workingMs = calculateWorkingDurationMs(startTime, now);
+  const elapsedMinutes = Math.floor(workingMs / 60000);
   const totalElapsedMinutes = elapsedMinutes + accumulatedMinutes;
   const estimatedMinutes = estimatedHours * 60;
   const remainingMinutes = Math.max(0, estimatedMinutes - totalElapsedMinutes);
@@ -85,12 +91,13 @@ export function useTimerCountdown(
 
   const hours = Math.floor(totalElapsedMinutes / 60);
   const mins = totalElapsedMinutes % 60;
-  const secs = Math.floor((elapsedMs % 60000) / 1000);
+  const secs = Math.floor((workingMs % 60000) / 1000);
 
   return {
     elapsedMinutes: totalElapsedMinutes,
     isOverdue,
     remainingMinutes,
     display: `${hours}j ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}d`,
+    isWorkingHours,
   };
 }
