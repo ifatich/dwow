@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import BreadcrumbBar from "@/components/shared/breadcrumb-bar";
@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const isReviewer = role === "lead" || role === "kadep" || role === "kadiv" || role === "super_admin";
 
   // Fetch spreadsheet config on mount
-  useState(() => {
+  useEffect(() => {
     fetch("/api/settings/spreadsheet")
       .then((r) => r.json())
       .then((d) => {
@@ -34,7 +34,25 @@ export default function SettingsPage() {
         if (d.lastSyncAt) setLastSync(d.lastSyncAt);
       })
       .catch(() => {});
-  });
+  }, []);
+
+  const handleSpreadsheetIdChange = (val: string) => {
+    const match = val.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) {
+      setSpreadsheetId(match[1]);
+      if (!appsScriptUrl) setAppsScriptUrl(val);
+    } else {
+      setSpreadsheetId(val);
+    }
+  };
+
+  const handleAppsScriptUrlChange = (val: string) => {
+    setAppsScriptUrl(val);
+    const match = val.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+    if (match && (!spreadsheetId || spreadsheetId === "1abc123...")) {
+      setSpreadsheetId(match[1]);
+    }
+  };
 
   const handleTestConnection = async () => {
     setSyncStatus("⏳ Menguji...");
@@ -45,7 +63,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ test: true }),
       });
       const d = await res.json();
-      setSyncStatus(d.status === "connected" ? `● Tersambung (${d.latency}ms)` : `● ${d.message}`);
+      setSyncStatus(d.status === "connected" ? `● ${d.message}` : `● ${d.message}`);
     } catch {
       setSyncStatus("● Gagal terhubung");
     }
@@ -189,11 +207,11 @@ export default function SettingsPage() {
               <h3 className="text-[16px] font-[540] text-ink">Integrasi Google Sheets</h3>
               <div>
                 <label className="block text-[11px] font-[540] text-ink/40 uppercase mb-xs">Spreadsheet ID</label>
-                <input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="1abc123..." className="w-full h-[40px] rounded-lg border border-hairline px-lg text-[14px] text-ink font-mono" />
+                <input value={spreadsheetId} onChange={(e) => handleSpreadsheetIdChange(e.target.value)} placeholder="1aDi3fiKhYmAlm4ltLQV8gc7DMm2hqpZtzF9iK0jfFKQ" className="w-full h-[40px] rounded-lg border border-hairline px-lg text-[14px] text-ink font-mono" />
               </div>
               <div>
-                <label className="block text-[11px] font-[540] text-ink/40 uppercase mb-xs">Apps Script URL</label>
-                <input value={appsScriptUrl} onChange={(e) => setAppsScriptUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." className="w-full h-[40px] rounded-lg border border-hairline px-lg text-[14px] text-ink font-mono" />
+                <label className="block text-[11px] font-[540] text-ink/40 uppercase mb-xs">Google Sheets URL / Apps Script URL</label>
+                <input value={appsScriptUrl} onChange={(e) => handleAppsScriptUrlChange(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/... atau https://script.google.com/..." className="w-full h-[40px] rounded-lg border border-hairline px-lg text-[14px] text-ink font-mono" />
               </div>
               {lastSync && <p className="text-[12px] text-ink/35">Terakhir sinkron: {new Date(lastSync).toLocaleString("id-ID")}</p>}
               <div className="flex items-center gap-sm flex-wrap pt-xs">

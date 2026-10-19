@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 import { importSprint185 } from "./import-sprint-185";
 
-const SPREADSHEET_ID = "1IE1qISarDluXe7ppWFgesctPTLL7TCDAzLFwAotlSzc";
-const SHEET_GID = "677490633";
+const SPREADSHEET_ID = "1aDi3fiKhYmAlm4ltLQV8gc7DMm2hqpZtzF9iK0jfFKQ";
+const SHEET_GID = "27617465";
 const CSV_EXPORT_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
 
 /**

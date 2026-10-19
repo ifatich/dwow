@@ -11,7 +11,43 @@ import {
 } from "../types";
 
 const DEFAULT_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1IE1qISarDluXe7ppWFgesctPTLL7TCDAzLFwAotlSzc/export?format=csv&gid=677490633";
+  "https://docs.google.com/spreadsheets/d/1aDi3fiKhYmAlm4ltLQV8gc7DMm2hqpZtzF9iK0jfFKQ/export?format=csv&gid=27617465";
+
+/**
+ * Normalizes any Google Sheets URL (including edit/sharing links) into a CSV export URL.
+ * Automatically targets the task data tab (gid=27617465) if missing or default.
+ */
+export function normalizeGoogleSheetsUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return DEFAULT_SHEET_URL;
+
+  // Already a complete export CSV URL with gid
+  if (trimmed.includes("/export?") && trimmed.includes("format=csv") && trimmed.includes("gid=")) {
+    return trimmed;
+  }
+
+  // Extract spreadsheet doc ID
+  const idMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!idMatch) {
+    return trimmed;
+  }
+  const spreadsheetId = idMatch[1];
+
+  // Extract GID from query params (?gid=...) or URL fragment (#gid=...)
+  const gidMatch = trimmed.match(/[?&#]gid=([0-9]+)/);
+  let gid = gidMatch ? gidMatch[1] : undefined;
+
+  // If this matches the target spreadsheet and gid is missing or 0, default to tbl_task (gid 27617465)
+  if (spreadsheetId === "1aDi3fiKhYmAlm4ltLQV8gc7DMm2hqpZtzF9iK0jfFKQ" && (!gid || gid === "0")) {
+    gid = "27617465";
+  }
+
+  if (gid) {
+    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
+  }
+
+  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+}
 
 /**
  * RFC 4180 compliant CSV parser.
@@ -66,7 +102,7 @@ export function parseCSV(text: string): string[][] {
  * Fetch raw CSV data from Google Sheets or fallback to local cache if offline.
  */
 export async function fetchSpreadsheetCSV(customUrl?: string): Promise<string> {
-  const targetUrl = customUrl?.trim() || DEFAULT_SHEET_URL;
+  const targetUrl = customUrl?.trim() ? normalizeGoogleSheetsUrl(customUrl) : DEFAULT_SHEET_URL;
 
   try {
     const controller = new AbortController();

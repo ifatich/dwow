@@ -78,3 +78,6 @@ testsprite_tests/tmp/
 .vscode/*
 !.vscode/mcp.json
 
+# graphify
+graphify-out/
+

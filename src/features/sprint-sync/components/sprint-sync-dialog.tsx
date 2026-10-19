@@ -419,7 +419,7 @@ export default function SprintSyncDialog({ open, onClose, onSuccess }: SprintSyn
                       type="text"
                       value={customUrl}
                       onChange={(e) => setCustomUrl(e.target.value)}
-                      placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=..."
+                      placeholder="https://docs.google.com/spreadsheets/d/1aDi3fiKhYmAlm4ltLQV8gc7DMm2hqpZtzF9iK0jfFKQ/export?format=csv&gid=27617465"
                       className="w-full h-[36px] rounded-md border border-hairline px-sm text-[12px] font-mono bg-canvas text-ink"
                     />
                     <span className="text-[11px] text-ink/40 block">
