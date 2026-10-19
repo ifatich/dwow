@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const CHANNEL_NAME = "taskforge:realtime_bus";
 const EVENT_NAME = "taskforge:data_changed";
@@ -27,15 +27,42 @@ export function notifyRealtimeSync() {
   }
 }
 
+interface RealtimeSyncOptions {
+  immediate?: boolean;
+  minIntervalMs?: number;
+}
+
 /** Hook to automatically re-trigger callback on realtime events, tab focus, or periodic interval */
-export function useRealtimeSync(onRefresh: () => void, intervalMs: number = 10000) {
+export function useRealtimeSync(
+  onRefresh: () => void,
+  intervalMs: number = 10000,
+  options: RealtimeSyncOptions = {}
+) {
+  const { immediate = false, minIntervalMs = 2000 } = options;
+  const savedCallback = useRef(onRefresh);
+  const lastCallRef = useRef<number>(0);
+
   useEffect(() => {
-    const handleEvent = () => {
-      onRefresh();
+    savedCallback.current = onRefresh;
+  }, [onRefresh]);
+
+  useEffect(() => {
+    const trigger = () => {
+      const now = Date.now();
+      // Throttle: don't execute if called within minIntervalMs (prevents burst triggers from focus + visibilitychange)
+      if (now - lastCallRef.current < minIntervalMs) {
+        return;
+      }
+      lastCallRef.current = now;
+      savedCallback.current();
     };
 
+    if (immediate) {
+      trigger();
+    }
+
     // 1. Local event listener
-    window.addEventListener(EVENT_NAME, handleEvent);
+    window.addEventListener(EVENT_NAME, trigger);
 
     // 2. Cross-tab BroadcastChannel listener
     let channel: BroadcastChannel | null = null;
@@ -44,7 +71,7 @@ export function useRealtimeSync(onRefresh: () => void, intervalMs: number = 1000
         channel = new BroadcastChannel(CHANNEL_NAME);
         channel.onmessage = (e) => {
           if (e.data?.type === "SYNC") {
-            onRefresh();
+            trigger();
           }
         };
       } catch {
@@ -52,27 +79,31 @@ export function useRealtimeSync(onRefresh: () => void, intervalMs: number = 1000
       }
     }
 
-    // 3. Tab focus & visibility change listener
-    window.addEventListener("focus", handleEvent);
+    // 3. Tab focus & visibility change listener (with debounce throttle)
+    const handleFocus = () => {
+      trigger();
+    };
     const handleVisibilityChange = () => {
       if (typeof document !== "undefined" && !document.hidden) {
-        onRefresh();
+        trigger();
       }
     };
+
+    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // 4. Periodic polling (fallback for background updates, paused when tab is hidden)
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
-      onRefresh();
+      trigger();
     }, intervalMs);
 
     return () => {
-      window.removeEventListener(EVENT_NAME, handleEvent);
-      window.removeEventListener("focus", handleEvent);
+      window.removeEventListener(EVENT_NAME, trigger);
+      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(timer);
       channel?.close();
     };
-  }, [onRefresh, intervalMs]);
+  }, [intervalMs, immediate, minIntervalMs]);
 }

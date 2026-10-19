@@ -73,6 +73,10 @@ export default function Home() {
     fetchSpreadsheetInfo();
   }, [fetchSpreadsheetInfo]);
 
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
   useRealtimeSync(fetchDashboardData, 5000);
 
   const isLoaded = Boolean(data);

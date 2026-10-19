@@ -3,9 +3,32 @@ import { db } from "@/db";
 import { projects, tasks, subtasks, users, subtaskAssignees } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-type TaskRow = typeof tasks.$inferSelect;
-type SubtaskRow = typeof subtasks.$inferSelect;
-type ProjectRow = typeof projects.$inferSelect;
+type TaskRow = {
+  id: string;
+  ticketId: string;
+  title: string;
+  status: string;
+  priority: string;
+  picName: string;
+  deadline: string | null;
+  projectId: string | null;
+};
+
+type SubtaskRow = {
+  id: string;
+  taskId: string;
+  title: string;
+  status: string;
+  done: boolean;
+  workloadHours: number;
+};
+
+type ProjectRow = {
+  id: string;
+  title: string;
+  sprint: string;
+  leadId: string | null;
+};
 
 interface SprintGroup {
   sprint: string;
@@ -29,19 +52,64 @@ interface SprintGroup {
       subtasks: { id: string; title: string; status: string; workloadHours: number; assignees: string[] }[];
     }[];
   }[];
+  isActive?: boolean;
 }
+
+// Micro-cache 5 detik untuk menghindari query ganda dari multiple component render
+let cachedSprints: { data: SprintGroup[]; expiresAt: number } | null = null;
+const CACHE_TTL_MS = 5000;
 
 /**
  * GET /api/sprints — sprints grouped by sprint name with projects, tasks & subtasks
  */
 export async function GET(_request: NextRequest) {
   try {
-    // Ambil data projects, tasks, subtasks, users, dan assignees secara paralel (1 roundtrip)
+    const now = Date.now();
+    if (cachedSprints && cachedSprints.expiresAt > now) {
+      return NextResponse.json(cachedSprints.data, {
+        headers: { "Cache-Control": "public, max-age=5, stale-while-revalidate=15" },
+      });
+    }
+
+    // Ambil data projects, tasks, subtasks, users, dan assignees secara paralel (hanya kolom yang dibutuhkan)
     const [allProjects, allTasks, allSubtasks, allUsers, allAssignees] = await Promise.all([
-      db.select().from(projects).orderBy(projects.sprint as any),
-      db.select().from(tasks),
-      db.select().from(subtasks),
-      db.select().from(users),
+      db
+        .select({
+          id: projects.id,
+          title: projects.title,
+          sprint: projects.sprint,
+          leadId: projects.leadId,
+        })
+        .from(projects)
+        .orderBy(projects.sprint as any),
+      db
+        .select({
+          id: tasks.id,
+          ticketId: tasks.ticketId,
+          title: tasks.title,
+          status: tasks.status,
+          priority: tasks.priority,
+          picName: tasks.picName,
+          deadline: tasks.deadline,
+          projectId: tasks.projectId,
+        })
+        .from(tasks),
+      db
+        .select({
+          id: subtasks.id,
+          taskId: subtasks.taskId,
+          title: subtasks.title,
+          status: subtasks.status,
+          done: subtasks.done,
+          workloadHours: subtasks.workloadHours,
+        })
+        .from(subtasks),
+      db
+        .select({
+          id: users.id,
+          username: users.username,
+        })
+        .from(users),
       db
         .select({
           subtaskId: subtaskAssignees.subtaskId,
@@ -157,7 +225,12 @@ export async function GET(_request: NextRequest) {
       return nb - na;
     });
 
-    return NextResponse.json(result.map((r) => ({ ...r, isActive: r.sprint === activeLabel })));
+    const finalResult = result.map((r) => ({ ...r, isActive: r.sprint === activeLabel }));
+    cachedSprints = { data: finalResult, expiresAt: Date.now() + CACHE_TTL_MS };
+
+    return NextResponse.json(finalResult, {
+      headers: { "Cache-Control": "public, max-age=5, stale-while-revalidate=15" },
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

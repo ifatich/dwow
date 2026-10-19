@@ -12,6 +12,31 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-6-1",
+    version: "v1.6.1",
+    date: "19 Okt 2026",
+    title: "Perbaikan Instant Mount Fetch & Anti-Duplicate Polling",
+    summary: "Memperbaiki keterlambatan penampilan Daftar Sprint dan halaman terkait dengan pemanggilan data instan pada mount awal (0 ms), pencegahan burst request ganda, dan micro-cache API.",
+    changes: [
+      {
+        type: "fix",
+        text: "Instant Mount Fetch: Menghilangkan jeda pemuatan 30 detik pada Riwayat Sprint, Home, dan Kanban dengan memicu pengambilan data langsung saat komponen dimount (0 ms) alih-alih menunggu timer polling.",
+      },
+      {
+        type: "improvement",
+        text: "Anti-Duplicate Polling: Menambahkan throttle guard (2000 ms) pada useRealtimeSync untuk mencegah request ganda saat event window focus dan visibilitychange terpicu bersamaan.",
+      },
+      {
+        type: "improvement",
+        text: "Deduplikasi Filter Sprints: GlobalFilterToolbar memanfaatkan data sprint dari parent page sehingga tidak lagi menembak /api/sprints secara berulang.",
+      },
+      {
+        type: "improvement",
+        text: "Lean Columns & Micro-Cache /api/sprints: Memilih kolom spesifik (menghapus payload evidence/goals/dod yang berat) dan menambahkan micro-cache 5 detik untuk respon instan < 40 ms.",
+      },
+    ],
+  },
+  {
     id: "v1-6-0",
     version: "v1.6.0",
     date: "19 Okt 2026",

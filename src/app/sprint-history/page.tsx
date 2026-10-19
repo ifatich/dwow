@@ -25,8 +25,17 @@ export default function SprintHistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Fetch data segera saat komponen di-mount
+  useEffect(() => {
+    fetchSprints();
+  }, [fetchSprints]);
+
   // Polling santai 30 detik untuk data arsip riwayat sprint
   useRealtimeSync(fetchSprints, 30000);
+
+  const sprintOptions = useMemo(() => {
+    return sprints.map((s) => s.sprint).filter(Boolean);
+  }, [sprints]);
 
   const filteredSprints = useMemo(() => {
     let result = sprints;
@@ -102,6 +111,7 @@ export default function SprintHistoryPage() {
             onUserChange={setSelectedUser}
             sprintValue={selectedSprint}
             onSprintChange={setSelectedSprint}
+            sprintsList={sprintOptions.length > 0 ? sprintOptions : undefined}
           />
 
           {/* Mode toggle */}

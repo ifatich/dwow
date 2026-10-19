@@ -33,6 +33,7 @@ interface GlobalFilterToolbarProps {
   onSprintChange: (val: string) => void;
   hideUserFilter?: boolean;
   hideSprintFilter?: boolean;
+  sprintsList?: string[];
 }
 
 export default function GlobalFilterToolbar({
@@ -42,9 +43,11 @@ export default function GlobalFilterToolbar({
   onSprintChange,
   hideUserFilter = false,
   hideSprintFilter = false,
+  sprintsList: propSprintsList,
 }: GlobalFilterToolbarProps) {
   const [usersList, setUsersList] = useState<{ username: string; name: string; role?: string }[]>([]);
-  const [sprintsList, setSprintsList] = useState<string[]>([]);
+  const [internalSprintsList, setInternalSprintsList] = useState<string[]>([]);
+  const sprintsList = propSprintsList && propSprintsList.length > 0 ? propSprintsList : internalSprintsList;
   const [userSearch, setUserSearch] = useState("");
 
   const [isOpenUser, setIsOpenUser] = useState(false);
@@ -100,21 +103,23 @@ export default function GlobalFilterToolbar({
           .catch(() => { });
       });
 
-    // Fetch sprints for dropdown
-    fetch("/api/sprints")
-      .then((r) => r.json())
-      .then((data) => {
-        let rawList: any[] = [];
-        if (Array.isArray(data)) {
-          rawList = data;
-        } else if (data && Array.isArray(data.sprints)) {
-          rawList = data.sprints;
-        }
-        const names = rawList.map((s: any) => s.sprint || s.name || s).filter(Boolean);
-        setSprintsList(names);
-      })
-      .catch(() => { });
-  }, []);
+    // Fetch sprints for dropdown if not provided via props
+    if (!propSprintsList || propSprintsList.length === 0) {
+      fetch("/api/sprints")
+        .then((r) => r.json())
+        .then((data) => {
+          let rawList: any[] = [];
+          if (Array.isArray(data)) {
+            rawList = data;
+          } else if (data && Array.isArray(data.sprints)) {
+            rawList = data.sprints;
+          }
+          const names = rawList.map((s: any) => s.sprint || s.name || s).filter(Boolean);
+          setInternalSprintsList(names);
+        })
+        .catch(() => { });
+    }
+  }, [propSprintsList]);
 
   // Close dropdowns on outside click
   useEffect(() => {

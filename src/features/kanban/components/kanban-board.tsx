@@ -94,6 +94,10 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
       .finally(() => setLoading(false));
   }, [projectId]);
 
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
   useRealtimeSync(fetchTasks, 5000);
 
   const showToast = (message: string) => {
