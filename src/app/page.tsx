@@ -14,6 +14,7 @@ import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { useRealtimeSync } from "@/lib/realtime-sync";
 import { DashboardSkeleton } from "@/components/shared/skeletons";
 import SprintSyncDialog from "@/features/sprint-sync/components/sprint-sync-dialog";
+import WhatsNewSection from "@/features/dashboard/components/whats-new-section";
 
 interface DashboardData {
   activeSprint?: string;
@@ -222,6 +223,11 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* ========================================================================
+           * Section 6: What's New & Log Aktivitas Pembaruan Sistem
+           * ======================================================================== */}
+          <WhatsNewSection />
         </div>
       </main>
 
