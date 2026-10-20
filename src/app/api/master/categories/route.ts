@@ -20,6 +20,7 @@ export async function GET() {
         u.nama as lead_nama,
         u.username as lead_username,
         u.role as lead_role,
+        u.avatar as lead_avatar,
         (SELECT COUNT(*) FROM projects p WHERE p.title = pc.name) as total_projects,
         (SELECT COUNT(*) FROM tasks t JOIN projects p ON t.project_id = p.id WHERE p.title = pc.name) as total_tasks
       FROM project_categories pc
@@ -29,7 +30,7 @@ export async function GET() {
 
     // Daftar lead valid (hanya role = 'lead', takeout admin/kadep/kadiv)
     const availableLeads = sqlite.prepare(`
-      SELECT id, nama, username, role, department
+      SELECT id, nama, username, role, department, avatar
       FROM users
       WHERE role = 'lead'
       ORDER BY nama ASC

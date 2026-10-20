@@ -14,6 +14,7 @@ export const users = sqliteTable("users", {
   department: text("department"),
   capacityHoursPerMonth: real("capacity_hours_per_month").notNull().default(72),
   leaveDays: real("leave_days").notNull().default(0),
+  avatar: text("avatar"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -141,7 +142,7 @@ export const activityLogs = sqliteTable("activity_logs", {
       "created", "started", "paused", "resumed", "completed",
       "review_requested", "approved", "revision_requested",
       "task_created", "task_status_changed", "task_rejected", "task_approved",
-      "subtask_created", "assignee_added", "assignee_removed",
+      "subtask_created", "assignee_added", "assignee_removed", "task_lead_assigned",
     ],
   }).notNull(),
   timestamp: text("timestamp").notNull(),
