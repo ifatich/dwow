@@ -973,22 +973,30 @@ export default function SprintSyncDialog({ open, onClose, onSuccess }: SprintSyn
 
                               {/* Diff Comparison Grid */}
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-xs pl-6 pt-xs border-t border-hairline/50">
-                                {t.diffs.map((d, dIdx) => (
-                                  <div key={dIdx} className="p-xs px-sm rounded-lg bg-surface-soft/60 border border-hairline/50 text-[11px]">
-                                    <span className="text-[10px] uppercase font-bold text-ink/40 tracking-[0.4px] block mb-xxs">
-                                      {d.label}
-                                    </span>
-                                    <div className="flex items-center gap-xs flex-wrap">
-                                      <span className="line-through text-red-600 bg-red-50 border border-red-200/60 px-xs py-xxs rounded font-mono">
-                                        {d.oldValue || "-"}
+                                {t.diffs.map((d, dIdx) => {
+                                  const isWide = d.field === "category" || String(d.oldValue).length > 25 || String(d.newValue).length > 25;
+                                  return (
+                                    <div
+                                      key={dIdx}
+                                      className={`p-xs px-sm rounded-lg bg-surface-soft/60 border border-hairline/50 text-[11px] ${
+                                        isWide ? "sm:col-span-2" : ""
+                                      }`}
+                                    >
+                                      <span className="text-[10px] uppercase font-bold text-ink/40 tracking-[0.4px] block mb-xxs">
+                                        {d.label}
                                       </span>
-                                      <span className="text-ink/40">➔</span>
-                                      <span className="font-[600] text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-xs py-xxs rounded font-mono">
-                                        {d.newValue || "-"}
-                                      </span>
+                                      <div className="flex items-center gap-xs flex-wrap">
+                                        <span className="line-through text-red-600 bg-red-50 border border-red-200/60 px-xs py-xxs rounded font-mono">
+                                          {d.oldValue || "-"}
+                                        </span>
+                                        <span className="text-ink/40">➔</span>
+                                        <span className="font-[600] text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-xs py-xxs rounded font-mono">
+                                          {d.newValue || "-"}
+                                        </span>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           );
@@ -1035,22 +1043,30 @@ export default function SprintSyncDialog({ open, onClose, onSuccess }: SprintSyn
 
                               {/* Diff Comparison Grid */}
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-xs pl-6 pt-xs border-t border-hairline/50">
-                                {st.diffs.map((d, dIdx) => (
-                                  <div key={dIdx} className="p-xs px-sm rounded-lg bg-surface-soft/60 border border-hairline/50 text-[11px]">
-                                    <span className="text-[10px] uppercase font-bold text-ink/40 tracking-[0.4px] block mb-xxs">
-                                      {d.label}
-                                    </span>
-                                    <div className="flex items-center gap-xs flex-wrap">
-                                      <span className="line-through text-red-600 bg-red-50 border border-red-200/60 px-xs py-xxs rounded font-mono">
-                                        {d.oldValue || "-"}
+                                {st.diffs.map((d, dIdx) => {
+                                  const isWide = d.field === "parent_task" || String(d.oldValue).length > 25 || String(d.newValue).length > 25;
+                                  return (
+                                    <div
+                                      key={dIdx}
+                                      className={`p-xs px-sm rounded-lg bg-surface-soft/60 border border-hairline/50 text-[11px] ${
+                                        isWide ? "sm:col-span-2" : ""
+                                      }`}
+                                    >
+                                      <span className="text-[10px] uppercase font-bold text-ink/40 tracking-[0.4px] block mb-xxs">
+                                        {d.label}
                                       </span>
-                                      <span className="text-ink/40">➔</span>
-                                      <span className="font-[600] text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-xs py-xxs rounded font-mono">
-                                        {d.newValue || "-"}
-                                      </span>
+                                      <div className="flex items-center gap-xs flex-wrap">
+                                        <span className="line-through text-red-600 bg-red-50 border border-red-200/60 px-xs py-xxs rounded font-mono">
+                                          {d.oldValue || "-"}
+                                        </span>
+                                        <span className="text-ink/40">➔</span>
+                                        <span className="font-[600] text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-xs py-xxs rounded font-mono">
+                                          {d.newValue || "-"}
+                                        </span>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           );

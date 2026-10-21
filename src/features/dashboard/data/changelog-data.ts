@@ -12,6 +12,31 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-8-4",
+    version: "v1.8.4",
+    date: "21 Okt 2026",
+    title: "Cross-Category Ticket Shifting & Preservation on Sprint Sync",
+    summary: "Memperbaiki masalah pembuatan tiket duplikat saat kategori proyek atau parent task digeser pada Google Sheets. Mesin sinkronisasi kini mengenali pergeseran kategori sebagai pembaruan (update) tiket yang sudah ada, mempertahankan ID tiket, progres, time log, dan riwayat aktivitas.",
+    changes: [
+      {
+        type: "fix",
+        text: "Cross-Category Task Matching: Sinkronisasi sprint kini melacak task yang berpindah kategori dalam sprint yang sama, memindahkan relasi project_id tanpa membuat task baru atau menduplikasi tiket lama.",
+      },
+      {
+        type: "fix",
+        text: "Cross-Task Subtask Preservation: Subtask yang berpindah parent task kini otomatis dipindahkan relasinya dengan mempertahankan status pengerjaan (in_progress, review, done), log jam kerja, dan file bukti (evidence).",
+      },
+      {
+        type: "improvement",
+        text: "Visual Category & Parent Diff Display: Menampilkan perbandingan pergeseran 'Kategori Project: [Kategori Lama] ➔ [Kategori Baru]' dan 'Pindah Parent Task' pada tab Pembaruan & Diff dengan tata letak responsif penuh.",
+      },
+      {
+        type: "improvement",
+        text: "Automatic Empty Category Cleanup: Membersihkan entri kategori project kosong dalam sprint jika seluruh task-nya telah dipindahkan ke kategori baru.",
+      },
+    ],
+  },
+  {
     id: "v1-8-3",
     version: "v1.8.3",
     date: "21 Okt 2026",

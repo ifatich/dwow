@@ -146,6 +146,14 @@ export async function fetchSpreadsheetCSV(customUrl?: string): Promise<string> {
 }
 
 /**
+ * Normalizes title strings for reliable comparison (strips whitespace, newlines, case).
+ */
+export function normalizeTitle(str?: string | null): string {
+  if (!str) return "";
+  return str.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").toLowerCase().trim();
+}
+
+/**
  * Find header indexes accurately from header row.
  */
 export function resolveHeaders(headerRow: string[]) {
@@ -419,22 +427,22 @@ export async function previewSprintSync(options: {
   let existingProjects: { id: string; title: string }[] = [];
   try {
     const existingProjectsRes = await client.execute({
-      sql: "SELECT id, title FROM projects WHERE sprint = ?",
-      args: [sprintLabel],
+      sql: "SELECT id, title FROM projects WHERE sprint = ? OR sprint = ? OR sprint = ?",
+      args: [sprintLabel, sprintIdentifier, numOnly],
     });
     existingProjects = existingProjectsRes.rows as unknown as { id: string; title: string }[];
   } catch {
     if (sqlite) {
       existingProjects = sqlite
-        .prepare("SELECT id, title FROM projects WHERE sprint = ?")
-        .all(sprintLabel) as { id: string; title: string }[];
+        .prepare("SELECT id, title FROM projects WHERE sprint = ? OR sprint = ? OR sprint = ?")
+        .all(sprintLabel, sprintIdentifier, numOnly) as { id: string; title: string }[];
     }
   }
 
   const existingProjectIds = existingProjects.map((p) => p.id);
   const existingProjectMap = new Map<string, string>();
   for (const p of existingProjects) {
-    existingProjectMap.set(p.title.toLowerCase().trim(), p.id);
+    existingProjectMap.set(normalizeTitle(p.title), p.id);
   }
 
   let existingTasks: Array<{
@@ -534,13 +542,35 @@ export async function previewSprintSync(options: {
   const detectedUpdatedTasks: UpdatedItemTask[] = [];
   const detectedUpdatedSubtasks: UpdatedItemSubtask[] = [];
   const processedUpdatedTaskIds = new Set<string>();
+  const matchedTaskIds = new Set<string>();
+  const matchedSubtaskIds = new Set<string>();
 
   for (const [catName, taskMap] of categoryMap.entries()) {
-    const pId = existingProjectMap.get(catName.toLowerCase().trim());
+    const pId = existingProjectMap.get(normalizeTitle(catName));
     for (const [projectName, sRows] of taskMap.entries()) {
-      const matchedTask = existingTasks.find(
-        (t) => pId === t.project_id && t.title.toLowerCase().trim() === projectName.toLowerCase().trim()
+      // 1. Direct match within same category project
+      let matchedTask = existingTasks.find(
+        (t) => !matchedTaskIds.has(t.id) && pId === t.project_id && normalizeTitle(t.title) === normalizeTitle(projectName)
       );
+      let isCategoryShift = false;
+      let oldCategoryName: string | undefined = undefined;
+
+      // 2. Cross-Category Match in the same sprint (category was shifted in spreadsheet)
+      if (!matchedTask) {
+        const candidate = existingTasks.find(
+          (t) => !matchedTaskIds.has(t.id) && normalizeTitle(t.title) === normalizeTitle(projectName)
+        );
+        if (candidate) {
+          matchedTask = candidate;
+          isCategoryShift = true;
+          const oldProj = existingProjects.find((p) => p.id === candidate.project_id);
+          oldCategoryName = oldProj?.title || "Kategori Lain";
+        }
+      }
+
+      if (matchedTask) {
+        matchedTaskIds.add(matchedTask.id);
+      }
 
       if (!matchedTask) {
         detectedNewTasks.push({
@@ -555,6 +585,16 @@ export async function previewSprintSync(options: {
         const newPic = sRows[0]?.[h.cIdx] || "Tim";
         const newPriorityRaw = (sRows[0]?.[h.prIdx] || "medium").toLowerCase();
         const newPriority = ["low", "medium", "high", "urgent"].includes(newPriorityRaw) ? newPriorityRaw : "medium";
+
+        // Diff for Category Shift
+        if (isCategoryShift && oldCategoryName) {
+          taskDiffs.push({
+            field: "category",
+            label: "Kategori Project",
+            oldValue: oldCategoryName,
+            newValue: catName,
+          });
+        }
 
         if (newPic && matchedTask.pic_name && newPic.toLowerCase().trim() !== matchedTask.pic_name.toLowerCase().trim()) {
           taskDiffs.push({
@@ -596,7 +636,7 @@ export async function previewSprintSync(options: {
         const title = rawTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
         const rawB = (sr[h.hIdx] || "").trim().replace(",", ".");
         const workload = isNaN(parseFloat(rawB)) ? 0 : parseFloat(rawB);
-        const subKey = `${title}__${workload}`;
+        const subKey = `${normalizeTitle(title)}__${workload}`;
         if (!subtaskGroupMap.has(subKey)) subtaskGroupMap.set(subKey, []);
         subtaskGroupMap.get(subKey)!.push(sr);
       }
@@ -610,13 +650,49 @@ export async function previewSprintSync(options: {
         const sheetAssignees = Array.from(new Set(rowsInSub.map((r) => (r[h.cIdx] || "").trim()).filter(Boolean)));
         const anyDone = rowsInSub.some((r) => (r[h.stIdx] || "").toLowerCase() === "done");
 
-        const candidates = matchedTask
-          ? existingSubtasks.filter(
-              (st) => st.task_id === matchedTask.id && st.title.toLowerCase().trim() === title.toLowerCase().trim()
-            )
-          : [];
+        let matchedSubtask: (typeof existingSubtasks)[0] | undefined = undefined;
+        let isSubtaskShift = false;
+        let oldParentTaskTitle: string | undefined = undefined;
 
-        const matchedSubtask = candidates[0];
+        // 1. Try finding within matchedTask
+        if (matchedTask) {
+          matchedSubtask = existingSubtasks.find(
+            (st) => !matchedSubtaskIds.has(st.id) &&
+                    st.task_id === matchedTask!.id &&
+                    normalizeTitle(st.title) === normalizeTitle(title) &&
+                    st.workload_hours === workload
+          );
+          if (!matchedSubtask) {
+            matchedSubtask = existingSubtasks.find(
+              (st) => !matchedSubtaskIds.has(st.id) &&
+                      st.task_id === matchedTask!.id &&
+                      normalizeTitle(st.title) === normalizeTitle(title)
+            );
+          }
+        }
+
+        // 2. Fallback: Search across sprint if non-generic
+        const isGeneric = ["review", "support", "discuss & brainstorming", "showing mockup", "qa", "testing"].includes(
+          normalizeTitle(title)
+        );
+        if (!matchedSubtask && !isGeneric) {
+          matchedSubtask = existingSubtasks.find(
+            (st) => !matchedSubtaskIds.has(st.id) &&
+                    normalizeTitle(st.title) === normalizeTitle(title) &&
+                    st.workload_hours === workload
+          );
+          if (!matchedSubtask) {
+            matchedSubtask = existingSubtasks.find(
+              (st) => !matchedSubtaskIds.has(st.id) &&
+                      normalizeTitle(st.title) === normalizeTitle(title)
+            );
+          }
+          if (matchedSubtask) {
+            isSubtaskShift = true;
+            const oldParent = existingTasks.find((t) => t.id === matchedSubtask!.task_id);
+            oldParentTaskTitle = oldParent?.title || "Task Lain";
+          }
+        }
 
         if (!matchedSubtask) {
           detectedNewSubtasks.push({
@@ -628,8 +704,19 @@ export async function previewSprintSync(options: {
             assignees: sheetAssignees,
           });
         } else {
+          matchedSubtaskIds.add(matchedSubtask.id);
           // Check for diffs between database and spreadsheet
           const subDiffs: FieldDiff[] = [];
+
+          if (isSubtaskShift && oldParentTaskTitle) {
+            subDiffs.push({
+              field: "parent_task",
+              label: "Pindah Parent Task",
+              oldValue: oldParentTaskTitle,
+              newValue: projectName,
+            });
+          }
+
           if (workload !== matchedSubtask.workload_hours) {
             subDiffs.push({
               field: "workload",
@@ -680,10 +767,10 @@ export async function previewSprintSync(options: {
     }
   }
 
-  const existingProjectTitles = new Set(existingProjects.map((p) => p.title.toLowerCase()));
+  const existingProjectTitles = new Set(existingProjects.map((p) => normalizeTitle(p.title)));
   let newProjectsCount = 0;
   for (const catName of categoryMap.keys()) {
-    if (!existingProjectTitles.has(catName.toLowerCase())) {
+    if (!existingProjectTitles.has(normalizeTitle(catName))) {
       newProjectsCount++;
     }
   }
@@ -708,9 +795,9 @@ export async function previewSprintSync(options: {
       existingProjectsInSprint: existingProjects.length,
       newProjectsCount,
       existingTasksInSprint: existingTasks.length,
-      newTasksCount: Math.max(0, tasksCount - existingTasks.length),
+      newTasksCount: detectedNewTasks.length,
       existingSubtasksInSprint: existingSubtasks.length,
-      newSubtasksCount: Math.max(0, totalUniqueSubtasks - existingSubtasks.length),
+      newSubtasksCount: detectedNewSubtasks.length,
       preservedInProgressSubtasks,
     },
     detectedNewItems: {
@@ -872,20 +959,20 @@ export async function executeSprintSync(options: {
 
   // 3. Fetch existing projects, tasks, and subtasks for this sprint from client
   const existingProjRes = await client.execute({
-    sql: "SELECT id, title, lead_id FROM projects WHERE sprint = ?",
-    args: [sprintLabel],
+    sql: "SELECT id, title, lead_id FROM projects WHERE sprint = ? OR sprint = ? OR sprint = ?",
+    args: [sprintLabel, sprintIdentifier, numOnly],
   });
   const existingProjects = existingProjRes.rows as unknown as Array<{ id: string; title: string; lead_id: string }>;
-  const existingProjectMap = new Map(existingProjects.map((p) => [p.title.toLowerCase().trim(), p]));
+  const existingProjectMap = new Map(existingProjects.map((p) => [normalizeTitle(p.title), p]));
 
   const existingProjIds = existingProjects.map((p) => p.id);
-  let existingTasks: Array<{ id: string; ticket_id: string; title: string; status: string; project_id: string }> = [];
+  let existingTasks: Array<{ id: string; ticket_id: string; title: string; status: string; project_id: string; pic_name?: string; priority?: string }> = [];
   let existingSubtasks: Array<{ id: string; task_id: string; title: string; status: string; workload_hours: number; done: number }> = [];
 
   if (existingProjIds.length > 0) {
     const pHolders = existingProjIds.map(() => "?").join(",");
     const tRes = await client.execute({
-      sql: `SELECT id, ticket_id, title, status, project_id FROM tasks WHERE project_id IN (${pHolders})`,
+      sql: `SELECT id, ticket_id, title, status, project_id, pic_name, priority FROM tasks WHERE project_id IN (${pHolders})`,
       args: existingProjIds,
     });
     existingTasks = tRes.rows as unknown as any[];
@@ -927,6 +1014,7 @@ export async function executeSprintSync(options: {
 
   const addedNewTasks: AddedItemTask[] = [];
   const addedNewSubtasks: AddedItemSubtask[] = [];
+  const claimedTaskIds = new Set<string>();
   const matchedSubtaskIds = new Set<string>();
 
   for (const [categoryName, taskMap] of categoryMap.entries()) {
@@ -967,7 +1055,7 @@ export async function executeSprintSync(options: {
     }
 
     // 1. Projects (Category level)
-    const existingProject = existingProjectMap.get(cleanCatName.toLowerCase());
+    const existingProject = existingProjectMap.get(normalizeTitle(cleanCatName));
 
     if (existingProject) {
       projectId = existingProject.id;
@@ -983,7 +1071,7 @@ export async function executeSprintSync(options: {
               VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
         args: [projectId, categoryName, `Kategori Project: ${categoryName} — ${sprintLabel}`, sprintLabel, leadId, detectedSprintCutoff, now, now],
       });
-      existingProjectMap.set(cleanCatName.toLowerCase(), { id: projectId, title: categoryName, lead_id: leadId || "" });
+      existingProjectMap.set(normalizeTitle(cleanCatName), { id: projectId, title: categoryName, lead_id: leadId || "" });
       projectsCreated++;
     }
 
@@ -1006,18 +1094,32 @@ export async function executeSprintSync(options: {
       }
 
       // 2. Tasks (Project column in sheet)
-      const existingTask = existingTasks.find(
-        (t) => t.project_id === projectId && t.title.toLowerCase().trim() === projectName.toLowerCase().trim()
+      // Check within same category project first
+      let existingTask = existingTasks.find(
+        (t) => !claimedTaskIds.has(t.id) && t.project_id === projectId && normalizeTitle(t.title) === normalizeTitle(projectName)
       );
 
+      // Fallback: cross-category search in the same sprint (category was shifted)
+      if (!existingTask) {
+        const candidate = existingTasks.find(
+          (t) => !claimedTaskIds.has(t.id) && normalizeTitle(t.title) === normalizeTitle(projectName)
+        );
+        if (candidate) {
+          existingTask = candidate;
+        }
+      }
+
       if (existingTask) {
+        claimedTaskIds.add(existingTask.id);
         taskId = existingTask.id;
         const shouldUpdateTask = !selectedUpdatedTaskIds || selectedUpdatedTaskIds.includes(taskId);
         if (shouldUpdateTask) {
+          // Update project_id to move task if category shifted, along with PIC, priority, and deadline
           batchStatements.push({
-            sql: "UPDATE tasks SET pic_name = ?, priority = ?, deadline = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
-            args: [pic, priority, taskDeadline, leadId, now, taskId],
+            sql: "UPDATE tasks SET project_id = ?, pic_name = ?, priority = ?, deadline = ?, lead_id = COALESCE(?, lead_id), updated_at = ? WHERE id = ?",
+            args: [projectId, pic, priority, taskDeadline, leadId, now, taskId],
           });
+          existingTask.project_id = projectId;
           tasksUpdated++;
         }
       } else {
@@ -1029,6 +1131,7 @@ export async function executeSprintSync(options: {
         }
 
         taskId = crypto.randomUUID();
+        claimedTaskIds.add(taskId);
         let currentTicketId = ticketId;
         let offset = 0;
         while (existingTicketIds.has(currentTicketId)) {
@@ -1061,7 +1164,7 @@ export async function executeSprintSync(options: {
         const subtaskTitle = rawSubtaskTitle.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ").trim();
         const rawBobot = (sr[h.hIdx] || "").trim().replace(",", ".");
         const workload = isNaN(parseFloat(rawBobot)) ? 0 : parseFloat(rawBobot);
-        const subKey = `${subtaskTitle}__${workload}`;
+        const subKey = `${normalizeTitle(subtaskTitle)}__${workload}`;
         if (!subtaskGroupMap.has(subKey)) {
           subtaskGroupMap.set(subKey, []);
         }
@@ -1084,16 +1187,37 @@ export async function executeSprintSync(options: {
         const description = descParts.length > 0 ? descParts.join("\n") : undefined;
         const featureGoal = firstSubtaskRow[h.fIdx] ? `Fitur: ${firstSubtaskRow[h.fIdx].trim()}` : undefined;
 
-        // Check if subtask exists in DB for this task
-        const candidates = existingSubtasks.filter(
-          (s) => s.task_id === taskId && s.title.toLowerCase().trim() === subtaskTitle.toLowerCase()
-        );
-
-        let existingSubtask = candidates.find(
-          (c) => !matchedSubtaskIds.has(c.id) && c.workload_hours === workload
+        // Check if subtask exists under taskId first
+        let existingSubtask = existingSubtasks.find(
+          (s) => !matchedSubtaskIds.has(s.id) &&
+                 s.task_id === taskId &&
+                 normalizeTitle(s.title) === normalizeTitle(subtaskTitle) &&
+                 s.workload_hours === workload
         );
         if (!existingSubtask) {
-          existingSubtask = candidates.find((c) => !matchedSubtaskIds.has(c.id));
+          existingSubtask = existingSubtasks.find(
+            (s) => !matchedSubtaskIds.has(s.id) &&
+                   s.task_id === taskId &&
+                   normalizeTitle(s.title) === normalizeTitle(subtaskTitle)
+          );
+        }
+
+        // Fallback: cross-task search in this sprint if non-generic
+        const isGeneric = ["review", "support", "discuss & brainstorming", "showing mockup", "qa", "testing"].includes(
+          normalizeTitle(subtaskTitle)
+        );
+        if (!existingSubtask && !isGeneric) {
+          existingSubtask = existingSubtasks.find(
+            (s) => !matchedSubtaskIds.has(s.id) &&
+                   normalizeTitle(s.title) === normalizeTitle(subtaskTitle) &&
+                   s.workload_hours === workload
+          );
+          if (!existingSubtask) {
+            existingSubtask = existingSubtasks.find(
+              (s) => !matchedSubtaskIds.has(s.id) &&
+                     normalizeTitle(s.title) === normalizeTitle(subtaskTitle)
+            );
+          }
         }
 
         let subtaskId: string;
@@ -1106,24 +1230,30 @@ export async function executeSprintSync(options: {
           const shouldUpdateSubtask = !selectedUpdatedSubtaskIds || selectedUpdatedSubtaskIds.includes(subtaskId);
 
           if (!shouldUpdateSubtask) {
-            // User unselected this update: preserve without changing workload or description
+            // User unselected this update: preserve without changing workload or description, but maintain parent task link if shifted
             subtasksPreserved++;
+            if (existingSubtask.task_id !== taskId) {
+              batchStatements.push({
+                sql: "UPDATE subtasks SET task_id = ?, updated_at = ? WHERE id = ?",
+                args: [taskId, now, existingSubtask.id],
+              });
+            }
           } else if (currentStatus === "in_progress" || currentStatus === "review" || currentStatus === "done") {
             subtasksPreserved++;
             batchStatements.push({
-              sql: "UPDATE subtasks SET description = ?, goals = ?, workload_hours = ?, updated_at = ? WHERE id = ?",
-              args: [description || null, featureGoal || null, workload, now, existingSubtask.id],
+              sql: "UPDATE subtasks SET task_id = ?, description = ?, goals = ?, workload_hours = ?, updated_at = ? WHERE id = ?",
+              args: [taskId, description || null, featureGoal || null, workload, now, existingSubtask.id],
             });
           } else if (anyDone) {
             batchStatements.push({
-              sql: "UPDATE subtasks SET done = 1, status = 'done', workload_hours = ?, updated_at = ? WHERE id = ?",
-              args: [workload, now, existingSubtask.id],
+              sql: "UPDATE subtasks SET task_id = ?, done = 1, status = 'done', workload_hours = ?, updated_at = ? WHERE id = ?",
+              args: [taskId, workload, now, existingSubtask.id],
             });
             subtasksUpdated++;
           } else {
             batchStatements.push({
-              sql: "UPDATE subtasks SET description = ?, goals = ?, workload_hours = ?, updated_at = ? WHERE id = ?",
-              args: [description || null, featureGoal || null, workload, now, existingSubtask.id],
+              sql: "UPDATE subtasks SET task_id = ?, description = ?, goals = ?, workload_hours = ?, updated_at = ? WHERE id = ?",
+              args: [taskId, description || null, featureGoal || null, workload, now, existingSubtask.id],
             });
             subtasksUpdated++;
           }
@@ -1228,7 +1358,15 @@ export async function executeSprintSync(options: {
     }
   }
 
-  // 4. Execute all batch statements in chunks of 50 to Turso/LibSQL client
+  // 4. Clean up any empty category projects in this sprint that have no tasks remaining
+  batchStatements.push({
+    sql: `DELETE FROM projects 
+          WHERE (sprint = ? OR sprint = ? OR sprint = ?) 
+            AND id NOT IN (SELECT DISTINCT project_id FROM tasks WHERE project_id IS NOT NULL)`,
+    args: [sprintLabel, sprintIdentifier, numOnly],
+  });
+
+  // 5. Execute all batch statements in chunks of 50 to Turso/LibSQL client
   console.log(`🚀 Menjalankan ${batchStatements.length} statements via client.batch...`);
   const CHUNK_SIZE = 50;
   for (let i = 0; i < batchStatements.length; i += CHUNK_SIZE) {
