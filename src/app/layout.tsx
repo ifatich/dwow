@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TaskFlow Pro — Sistem Manajemen Tugas",
-  description: "Sistem manajemen tugas dan proyek internal dengan Kanban board, workflow approval, dan integrasi spreadsheet.",
+  title: "D-WoW Platform — Digital Way of Working",
+  description: "Platform Digital Way of Working (D-WoW) internal dengan Kanban board, workflow approval, dan integrasi spreadsheet.",
 };
 
 export default function RootLayout({

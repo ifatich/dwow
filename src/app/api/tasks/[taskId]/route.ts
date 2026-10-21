@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/features/auth/services/auth";
 import { db } from "@/db";
 import { tasks, subtasks, subtaskAssignees, users, activityLogs, timeContributions, projects } from "@/db/schema";
 import { eq, asc, or, inArray } from "drizzle-orm";
@@ -169,6 +170,7 @@ export async function GET(
       description: t.description, goals: t.goals, dod: t.dod,
       status: t.status, priority: t.priority, picName: t.picName,
       lead: userMap.get(t.leadId || "")?.username || "",
+      leadId: t.leadId || null,
       project: projectTitle,
       projectId: t.projectId,
       deadline: t.deadline || "",
@@ -179,3 +181,78 @@ export async function GET(
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ taskId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role as string;
+    const currentUsername = (session.user as any).username as string;
+    const currentUserId = (session.user as any).id as string;
+
+    if (!["lead", "kadep", "kadiv", "super_admin"].includes(userRole)) {
+      return NextResponse.json({ error: "Forbidden: Hanya reviewer yang dapat memperbarui data task" }, { status: 403 });
+    }
+
+    const { taskId } = await params;
+    const body = await request.json();
+    const { leadId, title, description, priority, picName, deadline } = body;
+
+    const [existingTask] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+    if (!existingTask) {
+      return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
+    }
+
+    const now = new Date().toISOString();
+    const updates: Partial<typeof tasks.$inferInsert> = {
+      updatedAt: now,
+    };
+
+    if (leadId !== undefined) {
+      if (leadId) {
+        const [targetLead] = await db.select().from(users).where(eq(users.id, leadId)).limit(1);
+        if (!targetLead) {
+          return NextResponse.json({ error: "Lead tidak ditemukan" }, { status: 404 });
+        }
+        updates.leadId = leadId;
+      } else {
+        updates.leadId = null;
+      }
+    }
+
+    if (title !== undefined) updates.title = title.trim();
+    if (description !== undefined) updates.description = description;
+    if (priority !== undefined) updates.priority = priority;
+    if (picName !== undefined) updates.picName = picName.trim();
+    if (deadline !== undefined) updates.deadline = deadline;
+
+    await db.update(tasks).set(updates).where(eq(tasks.id, taskId)).run();
+
+    if (leadId !== undefined && leadId !== existingTask.leadId) {
+      try {
+        await db.insert(activityLogs).values({
+          id: crypto.randomUUID(),
+          taskId,
+          userId: currentUserId,
+          action: "task_lead_assigned",
+          note: `Lead task diperbarui oleh ${currentUsername}`,
+          timestamp: now,
+        });
+      } catch {}
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Task berhasil diperbarui",
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || "Gagal memperbarui task" }, { status: 500 });
+  }
+}
+

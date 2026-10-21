@@ -18,32 +18,73 @@ export async function PATCH(
       return NextResponse.json({ error: "Status tidak valid" }, { status: 400 });
     }
 
+    const [task] = await db
+      .select({ id: tasks.id, leadId: tasks.leadId })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .limit(1);
+
+    if (!task) {
+      return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
+    }
+
     const session = await auth();
     let userRole = (session?.user as any)?.role || body.userRole;
+    const currentUserId = (session?.user as any)?.id;
     const staffName = body.staffName || (session?.user as any)?.username || "unknown";
 
     if (!userRole && staffName) {
       const [u] = await db
-        .select({ role: users.role })
+        .select({ role: users.role, id: users.id })
         .from(users)
         .where(eq(users.username, staffName))
         .limit(1);
       userRole = u?.role;
     }
 
-    if (status === "done") {
-      const isLeadOrAdmin =
-        userRole === "lead" ||
-        userRole === "kadep" ||
-        userRole === "kadiv" ||
-        userRole === "super_admin" ||
-        staffName.toLowerCase() === "admin";
-      if (!isLeadOrAdmin) {
-        return NextResponse.json(
-          { error: "Hanya Lead yang dapat menyelesaikan task (status Done)" },
-          { status: 403 }
-        );
+    const normStaff = staffName.toLowerCase();
+    const isManagerOrAdmin =
+      userRole === "kadep" ||
+      userRole === "kadiv" ||
+      userRole === "super_admin" ||
+      normStaff === "admin";
+
+    let isTaskLead = false;
+    if (task.leadId) {
+      if (currentUserId && currentUserId === task.leadId) {
+        isTaskLead = true;
+      } else {
+        const [leadUser] = await db
+          .select({ id: users.id, username: users.username, nama: users.nama })
+          .from(users)
+          .where(eq(users.id, task.leadId))
+          .limit(1);
+        if (
+          leadUser &&
+          (leadUser.username?.toLowerCase() === normStaff ||
+           leadUser.nama?.toLowerCase() === normStaff ||
+           (session?.user as any)?.username?.toLowerCase() === leadUser.username?.toLowerCase())
+        ) {
+          isTaskLead = true;
+        }
       }
+    }
+
+    const isAuthorizedLeadOrAdmin = isManagerOrAdmin || (userRole === "lead" && isTaskLead);
+
+    // Jika role adalah Lead, dia hanya bisa menggeser/mengubah status tiket task yang dia pegang
+    if (userRole === "lead" && !isTaskLead && !isManagerOrAdmin) {
+      return NextResponse.json(
+        { error: "Hanya Lead penanggung jawab task ini atau Admin yang dapat memindahkan atau mengubah status task ini" },
+        { status: 403 }
+      );
+    }
+
+    if (status === "done" && !isAuthorizedLeadOrAdmin) {
+      return NextResponse.json(
+        { error: "Hanya Lead penanggung jawab task ini atau Admin yang dapat menyelesaikan task (status Done)" },
+        { status: 403 }
+      );
     }
 
     const now = new Date().toISOString();

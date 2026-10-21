@@ -10,16 +10,20 @@ export interface CurrentUser {
   username: string;
   name: string;
   role: UserRole;
+  avatar?: string | null;
+  department?: string | null;
 }
 
 function parseStoredUser(raw: string): CurrentUser | null {
   try {
     const parsed = JSON.parse(raw);
     return {
-      userId: parsed.username || "",
+      userId: parsed.id || parsed.userId || parsed.username || "",
       username: parsed.username || "",
-      name: parsed.name || parsed.username || "",
+      name: parsed.name || parsed.nama || parsed.username || "",
       role: (parsed.role?.toLowerCase()?.replace(/\s+/g, "_") as UserRole) || "staff",
+      avatar: parsed.avatar || null,
+      department: parsed.department || null,
     };
   } catch {
     return null;
@@ -37,9 +41,23 @@ export function useCurrentUser(): CurrentUser | null {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("taskflow_user");
-    if (stored) setMockUser(parseStoredUser(stored));
+    const loadUser = () => {
+      const stored = localStorage.getItem("taskflow_user");
+      if (stored) {
+        setMockUser(parseStoredUser(stored));
+      }
+    };
+
+    loadUser();
     setMounted(true);
+
+    const handleUpdate = () => loadUser();
+    window.addEventListener("taskflow_user_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("taskflow_user_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, []);
 
   // SSR: return session only (no localStorage access)
@@ -51,24 +69,26 @@ export function useCurrentUser(): CurrentUser | null {
         username: user.username || "",
         name: user.name || "",
         role: (user.role as UserRole) || "staff",
+        avatar: user.avatar || user.image || null,
       };
     }
     return null;
   }
 
-  // Client: localStorage > NextAuth session
-  if (mockUser) return mockUser;
-
+  // Client: blend session with client-stored avatar/name updates
   if (session?.user) {
     const user = session.user as any;
     return {
-      userId: user.id || "",
-      username: user.username || "",
-      name: user.name || "",
-      role: (user.role as UserRole) || "staff",
+      userId: user.id || mockUser?.userId || "",
+      username: user.username || mockUser?.username || "",
+      name: mockUser?.name || user.name || "",
+      role: (user.role as UserRole) || mockUser?.role || "staff",
+      avatar: mockUser?.avatar !== undefined ? mockUser.avatar : (user.avatar || user.image || null),
+      department: mockUser?.department || null,
     };
   }
 
+  if (mockUser) return mockUser;
   return null;
 }
 

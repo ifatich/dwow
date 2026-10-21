@@ -12,6 +12,39 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-8-0",
+    version: "v1.8.0",
+    date: "21 Okt 2026",
+    title: "Rich Markdown Evidence Editor with Formatting Toolbar, Direct Screenshot Paste & Lightbox Preview",
+    summary: "Menghadirkan editor bukti pengerjaan (evidence) berbasis Markdown modern dengan toolbar visual lengkap, dukungan paste langsung screenshot dari clipboard (Ctrl+V) dengan kompresi WebP otomatis di browser, tab preview real-time, serta penampil gambar lightbox interaktif pada kartu Kanban dan modal detail.",
+    changes: [
+      {
+        type: "feature",
+        text: "Markdown Evidence Editor: Menggantikan textarea bukti pengerjaan polos dengan editor berbasis Markdown yang dilengkapi toolbar visual untuk Bold, Italic, Bullet List, Numbered List, Checklist (- [ ]), Link, dan Image.",
+      },
+      {
+        type: "feature",
+        text: "Direct Screenshot Paste (Ctrl+V) & Instant Visual Image Preview: Pengembang kini dapat langsung menempelkan screenshot tangkapan layar dari clipboard (Ctrl+V / Cmd+V) atau drag-and-drop. Gambar otomatis dikompresi menjadi WebP ringan (~30-70 KB) dan langsung tampil seketika sebagai kartu pratinjau visual di bawah teks tanpa perlu membuka tab preview manual, serta tanpa mengotori area ketik dengan kode base64.",
+      },
+      {
+        type: "feature",
+        text: "Dual Tab Write & Real-Time Full Preview: Menyediakan toggle tab 'Tulis Catatan' dan 'Preview Lengkap' pada EvidenceDialog untuk memverifikasi susunan teks, formatting markdown, checklist, dan link sebelum diajukan.",
+      },
+      {
+        type: "improvement",
+        text: "Interactive Image Lightbox & Compact Card Preview: Bukti pengerjaan pada kartu Kanban dan modal detail subtask kini dirender rapi dengan dukungan checklist interaktif, link aktif, dan thumbnail gambar yang dapat diklik untuk membuka pratinjau zoom layar penuh (Lightbox).",
+      },
+      {
+        type: "improvement",
+        text: "Pembersihan Otomatis Log Aktivitas (No Base64 Bloat): Riwayat log aktivitas kini disanitasi secara otomatis sehingga hanya menampilkan teks catatan manusia yang ringkas dan bersih. Kode panjang base64 gambar digantikan dengan penanda tag rapi [📷 Gambar Bukti] baik saat disimpan ke database maupun saat ditampilkan di halaman riwayat dan feed aktivitas.",
+      },
+      {
+        type: "improvement",
+        text: "Peningkatan Ukuran Modal & Shortcut: Modal EvidenceDialog diperluas secara proporsional (max-w-[600px]) dengan dukungan shortcut simpan cepat (Ctrl+Enter / Cmd+Enter) dan tombol tutup (Esc / ✕).",
+      },
+    ],
+  },
+  {
     id: "v1-7-1",
     version: "v1.7.1",
     date: "20 Okt 2026",

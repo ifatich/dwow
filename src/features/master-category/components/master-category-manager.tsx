@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import CustomDropdown from "@/components/ui/custom-dropdown";
+import UserAvatar from "@/components/shared/user-avatar";
 
 interface MasterCategory {
   id: string;
@@ -12,6 +14,7 @@ interface MasterCategory {
   lead_nama?: string | null;
   lead_username?: string | null;
   lead_role?: string | null;
+  lead_avatar?: string | null;
   total_projects?: number;
   total_tasks?: number;
 }
@@ -22,6 +25,7 @@ interface AvailableLead {
   username: string;
   role: string;
   department?: string | null;
+  avatar?: string | null;
 }
 
 /**
@@ -228,26 +232,19 @@ export default function MasterCategoryManager() {
 
                     <td className="py-md px-md">
                       <div className="flex items-center gap-xs">
-                        <div className="relative inline-flex items-center">
-                          <select
-                            value={cat.lead_id || ""}
-                            disabled={isUpdating}
-                            onChange={(e) => handleLeadChange(cat.id, e.target.value)}
-                            className="h-[34px] rounded-lg border border-hairline bg-canvas pl-3 pr-8 text-[13px] text-ink font-[450] hover:border-ink/30 focus:border-primary focus:outline-none cursor-pointer transition-colors appearance-none"
-                          >
-                            <option value="">— Belum Ditentukan —</option>
-                            {availableLeads.map((lead) => (
-                              <option key={lead.id} value={lead.id}>
-                                {lead.nama}
-                              </option>
-                            ))}
-                          </select>
-                          <span className="pointer-events-none absolute right-2.5 text-ink/40">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                          </span>
-                        </div>
+                        <CustomDropdown
+                          value={cat.lead_id || ""}
+                          disabled={isUpdating}
+                          onChange={(val) => handleLeadChange(cat.id, val)}
+                          allOptionLabel="— Belum Ditentukan —"
+                          allOptionValue=""
+                          minWidth="170px"
+                          options={availableLeads.map((lead) => ({
+                            value: lead.id,
+                            label: lead.nama,
+                            icon: <UserAvatar name={lead.nama} avatar={lead.avatar} size="xs" />,
+                          }))}
+                        />
 
                         {isUpdating && (
                           <span className="text-[11px] text-ink/40 animate-pulse">Menyimpan...</span>
@@ -334,25 +331,19 @@ export default function MasterCategoryManager() {
                   <label className="block text-[11px] font-[540] text-ink/50 uppercase mb-xs">
                     Lead Penanggung Jawab
                   </label>
-                  <div className="relative flex items-center">
-                    <select
-                      value={newLeadId}
-                      onChange={(e) => setNewLeadId(e.target.value)}
-                      className="w-full h-[38px] rounded-lg border border-hairline bg-canvas pl-3 pr-8 text-[13px] text-ink focus:border-primary focus:outline-none appearance-none"
-                    >
-                      <option value="">— Pilih Lead —</option>
-                      {availableLeads.map((lead) => (
-                        <option key={lead.id} value={lead.id}>
-                          {lead.nama}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="pointer-events-none absolute right-3 text-ink/40">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </span>
-                  </div>
+                  <CustomDropdown
+                    className="w-full"
+                    triggerClassName="h-[38px] rounded-lg"
+                    value={newLeadId}
+                    onChange={(val) => setNewLeadId(val)}
+                    allOptionLabel="— Pilih Lead —"
+                    allOptionValue=""
+                    options={availableLeads.map((lead) => ({
+                      value: lead.id,
+                      label: lead.nama,
+                      icon: <UserAvatar name={lead.nama} avatar={lead.avatar} size="xs" />,
+                    }))}
+                  />
                 </div>
               </div>
 
