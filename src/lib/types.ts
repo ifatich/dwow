@@ -53,7 +53,9 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   picName: string;
+  picAvatar?: string | null;
   lead: string;
+  leadAvatar?: string | null;
   project: string;
   projectId: string;
   subtasks: Subtask[];

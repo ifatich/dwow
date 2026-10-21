@@ -20,11 +20,28 @@ export async function getTasksByProject(projectId: string): Promise<Task[]> {
 
   const targetProjectId = proj?.id || projectId;
 
+  // Pre-load all users for PIC and Lead avatar lookup
+  const allUsers = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      nama: users.nama,
+      avatar: users.avatar,
+    })
+    .from(users);
+
+  const userAvatarMap = new Map<string, string | null>();
+  for (const u of allUsers) {
+    if (u.username) userAvatarMap.set(u.username.trim().toLowerCase(), u.avatar || null);
+    if (u.nama) userAvatarMap.set(u.nama.trim().toLowerCase(), u.avatar || null);
+  }
+
   const rows = await db
     .select({
       task: tasks,
       leadUsername: users.username,
       leadNama: users.nama,
+      leadAvatar: users.avatar,
       projectTitle: projects.title,
     })
     .from(tasks)
@@ -39,7 +56,15 @@ export async function getTasksByProject(projectId: string): Promise<Task[]> {
 
   return rows.map((row) => {
     const subtasks = subtasksMap.get(row.task.id) || [];
-    return mapTask(row.task, row.leadUsername || "", row.projectTitle || "", subtasks);
+    const picAvatar = userAvatarMap.get(row.task.picName.trim().toLowerCase()) || null;
+    return mapTask(
+      row.task,
+      row.leadUsername || "",
+      row.projectTitle || "",
+      subtasks,
+      row.leadAvatar || null,
+      picAvatar
+    );
   });
 }
 
@@ -51,6 +76,8 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     .select({
       task: tasks,
       leadUsername: users.username,
+      leadNama: users.nama,
+      leadAvatar: users.avatar,
       projectTitle: projects.title,
     })
     .from(tasks)
@@ -61,8 +88,21 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
 
   if (!row) return null;
 
+  const [picUser] = await db
+    .select({ avatar: users.avatar })
+    .from(users)
+    .where(or(eq(users.username, row.task.picName), eq(users.nama, row.task.picName)))
+    .limit(1);
+
   const subtasks = await getSubtasksByTaskId(row.task.id);
-  return mapTask(row.task, row.leadUsername || "", row.projectTitle || "", subtasks);
+  return mapTask(
+    row.task,
+    row.leadUsername || "",
+    row.projectTitle || "",
+    subtasks,
+    row.leadAvatar || null,
+    picUser?.avatar || null
+  );
 }
 
 /**
@@ -147,7 +187,9 @@ function mapTask(
   t: typeof tasks.$inferSelect,
   leadName: string,
   projectName: string,
-  subtasks: Task["subtasks"]
+  subtasks: Task["subtasks"],
+  leadAvatar?: string | null,
+  picAvatar?: string | null
 ): Task {
   return {
     id: t.id,
@@ -159,7 +201,9 @@ function mapTask(
     status: t.status as TaskStatus,
     priority: t.priority as Task["priority"],
     picName: t.picName,
+    picAvatar: picAvatar ?? null,
     lead: leadName,
+    leadAvatar: leadAvatar ?? null,
     project: projectName,
     projectId: t.projectId || "",
     subtasks,

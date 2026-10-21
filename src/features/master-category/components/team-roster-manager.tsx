@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import CustomDropdown from "@/components/ui/custom-dropdown";
+import UserAvatar from "@/components/shared/user-avatar";
 
 interface StaffMember {
   id: string;
@@ -8,6 +10,7 @@ interface StaffMember {
   username: string;
   role: string;
   department: string | null;
+  avatar?: string | null;
 }
 
 interface LeadTeam {
@@ -16,6 +19,7 @@ interface LeadTeam {
   username: string;
   role: string;
   department: string | null;
+  avatar?: string | null;
   staffCount: number;
   staffMembers: StaffMember[];
 }
@@ -181,9 +185,11 @@ export default function TeamRosterManager() {
                 {/* Header Kartu Lead */}
                 <div className="flex items-center justify-between pb-sm border-b border-hairline/60">
                   <div className="flex items-center gap-sm">
-                    <div className="w-[34px] h-[34px] rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-[540] text-primary text-[12px]">
-                      {lead.nama.slice(0, 2).toUpperCase()}
-                    </div>
+                    <UserAvatar
+                      name={lead.nama}
+                      avatar={lead.avatar}
+                      size="lg"
+                    />
                     <div>
                       <div className="text-[14px] font-[540] text-ink leading-tight">{lead.nama}</div>
                       <div className="text-[11px] font-mono text-ink/40">@{lead.username}</div>
@@ -216,9 +222,11 @@ export default function TeamRosterManager() {
                               isRemoving ? "opacity-30 pointer-events-none" : "hover:border-ink/30"
                             }`}
                           >
-                            <span className="w-4 h-4 rounded-full bg-surface-soft text-[9px] font-[540] flex items-center justify-center text-ink/60">
-                              {staff.nama.slice(0, 1)}
-                            </span>
+                            <UserAvatar
+                              name={staff.nama}
+                              avatar={staff.avatar}
+                              size="xs"
+                            />
                             <span>{staff.nama}</span>
                             <button
                               type="button"
@@ -237,36 +245,28 @@ export default function TeamRosterManager() {
 
                 {/* Quick Add Staff Dropdown */}
                 <div className="pt-sm border-t border-hairline/60">
-                  <div className="relative flex items-center">
-                    <select
-                      value={currentSelected}
-                      disabled={availableStaffForThisLead.length === 0}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSelectedStaffToAdd((prev) => ({ ...prev, [lead.id]: val }));
-                        if (val) {
-                          handleAssignStaff(lead.id, val);
-                        }
-                      }}
-                      className="w-full h-[34px] rounded-lg border border-hairline bg-canvas pl-3 pr-8 text-[12px] text-ink font-[450] focus:outline-none focus:border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
-                    >
-                      <option value="">
-                        {availableStaffForThisLead.length === 0
-                          ? "Semua staff sudah masuk"
-                          : "+ Tambah Staff ke Tim..."}
-                      </option>
-                      {availableStaffForThisLead.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nama} {s.assignedLeads.length > 0 ? `(sudah di ${s.assignedLeads.map((l) => l.nama).join(", ")})` : "(belum ada lead)"}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="pointer-events-none absolute right-3 text-ink/40">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </span>
-                  </div>
+                  <CustomDropdown
+                    className="w-full"
+                    value={currentSelected}
+                    disabled={availableStaffForThisLead.length === 0}
+                    onChange={(val) => {
+                      setSelectedStaffToAdd((prev) => ({ ...prev, [lead.id]: val }));
+                      if (val) {
+                        handleAssignStaff(lead.id, val);
+                      }
+                    }}
+                    allOptionLabel={
+                      availableStaffForThisLead.length === 0
+                        ? "Semua staff sudah masuk"
+                        : "+ Tambah Staff ke Tim..."
+                    }
+                    allOptionValue=""
+                    options={availableStaffForThisLead.map((s) => ({
+                      value: s.id,
+                      label: `${s.nama} ${s.assignedLeads.length > 0 ? `(sudah di ${s.assignedLeads.map((l) => l.nama).join(", ")})` : "(belum ada lead)"}`,
+                      icon: <UserAvatar name={s.nama} avatar={s.avatar} size="xs" />,
+                    }))}
+                  />
                 </div>
               </div>
             );

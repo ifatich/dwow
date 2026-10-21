@@ -11,11 +11,11 @@ export async function GET() {
   try {
     // 1. Ambil semua Lead (role = lead saja, takeout admin/kadep/kadiv)
     const leadsRaw = sqlite.prepare(`
-      SELECT id, nama, username, role, department
+      SELECT id, nama, username, role, department, avatar
       FROM users
       WHERE role = 'lead'
       ORDER BY nama ASC
-    `).all() as Array<{ id: string; nama: string; username: string; role: string; department: string | null }>;
+    `).all() as Array<{ id: string; nama: string; username: string; role: string; department: string | null; avatar: string | null }>;
 
     // 2. Ambil semua penugasan dari tabel junction lead_staff_assignments
     const assignments = sqlite.prepare(`
@@ -28,8 +28,10 @@ export async function GET() {
         s.username as staff_username,
         s.role as staff_role,
         s.department as staff_department,
+        s.avatar as staff_avatar,
         l.nama as lead_nama,
-        l.username as lead_username
+        l.username as lead_username,
+        l.avatar as lead_avatar
       FROM lead_staff_assignments lsa
       JOIN users s ON lsa.staff_id = s.id
       JOIN users l ON lsa.lead_id = l.id
@@ -43,13 +45,15 @@ export async function GET() {
       staff_username: string;
       staff_role: string;
       staff_department: string | null;
+      staff_avatar: string | null;
       lead_nama: string;
       lead_username: string;
+      lead_avatar: string | null;
     }>;
 
     // 3. Ambil semua staff (role = staff)
     const allStaff = sqlite.prepare(`
-      SELECT id, nama, username, role, department, capacity_hours_per_month
+      SELECT id, nama, username, role, department, capacity_hours_per_month, avatar
       FROM users
       WHERE role = 'staff'
       ORDER BY nama ASC
@@ -60,6 +64,7 @@ export async function GET() {
       role: string;
       department: string | null;
       capacity_hours_per_month: number;
+      avatar: string | null;
     }>;
 
     // Kelompokkan staff per Lead
@@ -69,6 +74,7 @@ export async function GET() {
       username: string;
       role: string;
       department: string | null;
+      avatar: string | null;
     }>>();
 
     // Kelompokkan lead per Staff
@@ -76,6 +82,7 @@ export async function GET() {
       id: string;
       nama: string;
       username: string;
+      avatar: string | null;
     }>>();
 
     for (const a of assignments) {
@@ -89,6 +96,7 @@ export async function GET() {
         username: a.staff_username,
         role: a.staff_role,
         department: a.staff_department,
+        avatar: a.staff_avatar,
       });
 
       // Per staff
@@ -99,6 +107,7 @@ export async function GET() {
         id: a.lead_id,
         nama: a.lead_nama,
         username: a.lead_username,
+        avatar: a.lead_avatar,
       });
     }
 
