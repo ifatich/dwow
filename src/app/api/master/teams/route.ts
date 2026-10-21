@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sqlite } from "@/db";
+import { rawQuery, rawExecute } from "@/db";
+
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/master/teams
@@ -10,15 +12,28 @@ import { sqlite } from "@/db";
 export async function GET() {
   try {
     // 1. Ambil semua Lead (role = lead saja, takeout admin/kadep/kadiv)
-    const leadsRaw = sqlite.prepare(`
+    const leadsRaw = await rawQuery<{ id: string; nama: string; username: string; role: string; department: string | null; avatar: string | null }>(`
       SELECT id, nama, username, role, department, avatar
       FROM users
       WHERE role = 'lead'
       ORDER BY nama ASC
-    `).all() as Array<{ id: string; nama: string; username: string; role: string; department: string | null; avatar: string | null }>;
+    `);
 
     // 2. Ambil semua penugasan dari tabel junction lead_staff_assignments
-    const assignments = sqlite.prepare(`
+    const assignments = await rawQuery<{
+      assignment_id: number;
+      lead_id: string;
+      staff_id: string;
+      assigned_at: string;
+      staff_nama: string;
+      staff_username: string;
+      staff_role: string;
+      staff_department: string | null;
+      staff_avatar: string | null;
+      lead_nama: string;
+      lead_username: string;
+      lead_avatar: string | null;
+    }>(`
       SELECT 
         lsa.id as assignment_id,
         lsa.lead_id,
@@ -36,28 +51,10 @@ export async function GET() {
       JOIN users s ON lsa.staff_id = s.id
       JOIN users l ON lsa.lead_id = l.id
       ORDER BY s.nama ASC
-    `).all() as Array<{
-      assignment_id: number;
-      lead_id: string;
-      staff_id: string;
-      assigned_at: string;
-      staff_nama: string;
-      staff_username: string;
-      staff_role: string;
-      staff_department: string | null;
-      staff_avatar: string | null;
-      lead_nama: string;
-      lead_username: string;
-      lead_avatar: string | null;
-    }>;
+    `);
 
     // 3. Ambil semua staff (role = staff)
-    const allStaff = sqlite.prepare(`
-      SELECT id, nama, username, role, department, capacity_hours_per_month, avatar
-      FROM users
-      WHERE role = 'staff'
-      ORDER BY nama ASC
-    `).all() as Array<{
+    const allStaff = await rawQuery<{
       id: string;
       nama: string;
       username: string;
@@ -65,7 +62,12 @@ export async function GET() {
       department: string | null;
       capacity_hours_per_month: number;
       avatar: string | null;
-    }>;
+    }>(`
+      SELECT id, nama, username, role, department, capacity_hours_per_month, avatar
+      FROM users
+      WHERE role = 'staff'
+      ORDER BY nama ASC
+    `);
 
     // Kelompokkan staff per Lead
     const staffByLead = new Map<string, Array<{
@@ -156,11 +158,11 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
 
-    sqlite.prepare(`
+    await rawExecute(`
       INSERT INTO lead_staff_assignments (lead_id, staff_id, assigned_at)
       VALUES (?, ?, ?)
       ON CONFLICT(lead_id, staff_id) DO NOTHING
-    `).run(leadId, staffId, now);
+    `, [leadId, staffId, now]);
 
     return NextResponse.json({ success: true, message: "Staff berhasil ditugaskan ke Lead" });
   } catch (err: any) {
@@ -183,10 +185,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "leadId dan staffId wajib diisi" }, { status: 400 });
     }
 
-    sqlite.prepare(`
+    await rawExecute(`
       DELETE FROM lead_staff_assignments
       WHERE lead_id = ? AND staff_id = ?
-    `).run(leadId, staffId);
+    `, [leadId, staffId]);
 
     return NextResponse.json({ success: true, message: "Penugasan staff berhasil dicabut" });
   } catch (err: any) {

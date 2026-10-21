@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sqlite } from "@/db";
+import { rawQuery, rawQueryOne, rawExecute } from "@/db";
+
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/master/categories
@@ -7,7 +9,7 @@ import { sqlite } from "@/db";
  */
 export async function GET() {
   try {
-    const categories = sqlite.prepare(`
+    const categories = await rawQuery(`
       SELECT 
         pc.id,
         pc.name,
@@ -26,15 +28,15 @@ export async function GET() {
       FROM project_categories pc
       LEFT JOIN users u ON pc.lead_id = u.id
       ORDER BY pc.name ASC
-    `).all();
+    `);
 
     // Daftar lead valid (hanya role = 'lead', takeout admin/kadep/kadiv)
-    const availableLeads = sqlite.prepare(`
+    const availableLeads = await rawQuery(`
       SELECT id, nama, username, role, department, avatar
       FROM users
       WHERE role = 'lead'
       ORDER BY nama ASC
-    `).all();
+    `);
 
     return NextResponse.json({
       categories,
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
       : cleanName.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || "PROJ";
 
     // Cek duplikasi nama
-    const existing = sqlite.prepare("SELECT id FROM project_categories WHERE LOWER(name) = LOWER(?)").get(cleanName);
+    const existing = await rawQueryOne("SELECT id FROM project_categories WHERE LOWER(name) = LOWER(?)", [cleanName]);
     if (existing) {
       return NextResponse.json({ error: `Kategori "${cleanName}" sudah terdaftar` }, { status: 409 });
     }
@@ -73,10 +75,10 @@ export async function POST(request: NextRequest) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    sqlite.prepare(`
+    await rawExecute(`
       INSERT INTO project_categories (id, name, code, lead_id, description, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-    `).run(id, cleanName, cleanCode, lead_id || null, description || null, now, now);
+    `, [id, cleanName, cleanCode, lead_id || null, description || null, now, now]);
 
     return NextResponse.json({
       success: true,
@@ -108,7 +110,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "ID kategori wajib diisi" }, { status: 400 });
     }
 
-    const current = sqlite.prepare("SELECT * FROM project_categories WHERE id = ?").get(id) as any;
+    const current = await rawQueryOne<any>("SELECT * FROM project_categories WHERE id = ?", [id]);
     if (!current) {
       return NextResponse.json({ error: "Kategori tidak ditemukan" }, { status: 404 });
     }
@@ -120,33 +122,26 @@ export async function PATCH(request: NextRequest) {
     const newIsActive = is_active !== undefined ? (is_active ? 1 : 0) : current.is_active;
     const now = new Date().toISOString();
 
-    // Jalankan dalam transaksi
-    const updateTx = sqlite.transaction(() => {
-      sqlite.prepare(`
-        UPDATE project_categories
-        SET name = ?, code = ?, lead_id = ?, description = ?, is_active = ?, updated_at = ?
-        WHERE id = ?
-      `).run(cleanName, cleanCode, newLeadId, newDescription, newIsActive, now, id);
+    await rawExecute(`
+      UPDATE project_categories
+      SET name = ?, code = ?, lead_id = ?, description = ?, is_active = ?, updated_at = ?
+      WHERE id = ?
+    `, [cleanName, cleanCode, newLeadId, newDescription, newIsActive, now, id]);
 
-      // Jika sinkronisasi ke project & task aktif diaktifkan dan lead diubah
-      if (syncExisting && newLeadId !== undefined && newLeadId !== current.lead_id) {
-        // Update project dengan title sesuai category name
-        sqlite.prepare(`
-          UPDATE projects
-          SET lead_id = ?, updated_at = ?
-          WHERE title = ?
-        `).run(newLeadId, now, current.name);
+    // Jika sinkronisasi ke project & task aktif diaktifkan dan lead diubah
+    if (syncExisting && newLeadId !== undefined && newLeadId !== current.lead_id) {
+      await rawExecute(`
+        UPDATE projects
+        SET lead_id = ?, updated_at = ?
+        WHERE title = ?
+      `, [newLeadId, now, current.name]);
 
-        // Update task di bawah project tersebut
-        sqlite.prepare(`
-          UPDATE tasks
-          SET lead_id = ?, updated_at = ?
-          WHERE project_id IN (SELECT id FROM projects WHERE title = ?)
-        `).run(newLeadId, now, current.name);
-      }
-    });
-
-    updateTx();
+      await rawExecute(`
+        UPDATE tasks
+        SET lead_id = ?, updated_at = ?
+        WHERE project_id IN (SELECT id FROM projects WHERE title = ?)
+      `, [newLeadId, now, current.name]);
+    }
 
     return NextResponse.json({
       success: true,

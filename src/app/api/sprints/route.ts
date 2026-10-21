@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, ensureSchema } from "@/db";
 import { projects, tasks, subtasks, users, subtaskAssignees } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -70,6 +70,8 @@ export async function GET(_request: NextRequest) {
         headers: { "Cache-Control": "public, max-age=5, stale-while-revalidate=15" },
       });
     }
+
+    await ensureSchema();
 
     // Ambil data projects, tasks, subtasks, users, dan assignees secara paralel (hanya kolom yang dibutuhkan)
     const [allProjects, allTasks, allSubtasks, allUsers, allAssignees] = await Promise.all([

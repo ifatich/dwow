@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, ensureSchema } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
+    await ensureSchema();
     const formData = await req.formData();
     const username = formData.get("username")?.toString().trim().toLowerCase();
     const password = formData.get("password")?.toString();
@@ -81,8 +82,9 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err: any) {
     console.error("Direct login error:", err);
+    const errText = err?.message ? encodeURIComponent(err.message) : "Gagal+masuk+ke+sistem";
     return NextResponse.redirect(
-      new URL("/login?error=Gagal+masuk+ke+sistem", req.url),
+      new URL(`/login?error=${errText}`, req.url),
       303
     );
   }

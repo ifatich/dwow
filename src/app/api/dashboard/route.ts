@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, rawQuery } from "@/db";
+import { db, rawQuery, ensureSchema } from "@/db";
 import { projects, tasks, subtasks, subtaskAssignees, users } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const role = searchParams.get("role") || "staff";
     const username = searchParams.get("username") || "";
+
+    // Pastikan skema tabel dan kolom terbaru selalu tersinkronisasi di Turso/SQLite
+    await ensureSchema();
 
     // Fetch all data in parallel (1 roundtrip)
     const [allUsers, allProjects, allTasks, allSubtasks, allAssignees, teamAssignments] = await Promise.all([

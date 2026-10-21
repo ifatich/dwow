@@ -12,6 +12,27 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-8-2",
+    version: "v1.8.2",
+    date: "21 Okt 2026",
+    title: "Self-Healing Database Auto-Migration & Serverless LibSQL Stability",
+    summary: "Memperbaiki kegagalan load data 500 di seluruh aplikasi pada environment production Vercel dengan menghadirkan mekanisme self-healing auto-migration skema database Turso/LibSQL dan memigrasikan seluruh route master data ke client serverless.",
+    changes: [
+      {
+        type: "fix",
+        text: "Self-Healing Schema Synchronization: Menambahkan auto-migration otomatis pada database proxy LibSQL yang memeriksa dan memastikan seluruh 12 tabel dan kolom baru (seperti users.avatar, projects.lead_id, subtasks.evidence, app_settings, dsb.) otomatis dibuat saat query pertama berjalan di production.",
+      },
+      {
+        type: "fix",
+        text: "Pembersihan Dependensi better-sqlite3 di Serverless: Menghilangkan pemanggilan better-sqlite3 langsung pada API master data (/api/master/categories dan /api/master/teams) dan membungkus inisialisasi lokalnya agar tidak menyebabkan crash pada AWS Lambda / Vercel Serverless runtime.",
+      },
+      {
+        type: "improvement",
+        text: "Transparent LibSQL Client Proxy: Membungkus client LibSQL dengan Proxy transparan sehingga setiap pemanggilan query Drizzle ORM (db.select(), db.insert(), dsb.) di seluruh halaman dan endpoint API otomatis menjamin kesiapan skema database sebelum query dieksekusi.",
+      },
+    ],
+  },
+  {
     id: "v1-8-1",
     version: "v1.8.1",
     date: "21 Okt 2026",

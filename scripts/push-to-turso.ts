@@ -50,6 +50,7 @@ async function main() {
       department TEXT,
       capacity_hours_per_month REAL DEFAULT 160 NOT NULL,
       leave_days REAL DEFAULT 0 NOT NULL,
+      avatar TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -148,6 +149,11 @@ async function main() {
       assigned_at TEXT NOT NULL,
       UNIQUE(lead_id, staff_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS staff_assignment_history (
       id TEXT PRIMARY KEY NOT NULL,
       subtask_id TEXT NOT NULL,
@@ -178,6 +184,7 @@ async function main() {
     "project_categories",
     "lead_staff_assignments",
     "staff_assignment_history",
+    "app_settings",
   ];
 
   console.log("\n🧹 Membersihkan tabel-tabel di Turso agar bersih dan persisten...");
