@@ -12,6 +12,19 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-8-1",
+    version: "v1.8.1",
+    date: "21 Okt 2026",
+    title: "Fix Next.js Static Prerender Error on Login Page",
+    summary: "Membungkus pemanggilan useSearchParams pada halaman login ke dalam Suspense boundary untuk memastikan build optimasi dan prerender statis di Vercel / Next.js production berjalan sukses tanpa CSR bailout error.",
+    changes: [
+      {
+        type: "fix",
+        text: "Suspense Boundary di Halaman Login: Membungkus komponen LoginForm dengan Suspense boundary dan fallback loading skeleton agar pemanggilan useSearchParams kompatibel dengan prerender statis Next.js (Turbopack) saat deployment otomatis di Vercel.",
+      },
+    ],
+  },
+  {
     id: "v1-8-0",
     version: "v1.8.0",
     date: "21 Okt 2026",
