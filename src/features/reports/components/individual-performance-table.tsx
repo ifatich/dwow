@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import Tooltip from "@/components/ui/tooltip";
+import UserAvatar from "@/components/shared/user-avatar";
 import type { StaffMetric } from "../types";
 
 /** Props for the IndividualPerformanceTable component. */
@@ -169,9 +170,12 @@ export default function IndividualPerformanceTable({ staff }: IndividualPerforma
                 >
                   {/* 1. Staff Identity */}
                   <td className="px-lg py-md">
-                    <div className="flex flex-col">
-                      <span className="text-[14px] font-[500] text-ink">{s.name}</span>
-                      <span className="text-[11px] text-ink/40 font-mono">@{s.username}</span>
+                    <div className="flex items-center gap-sm">
+                      <UserAvatar name={s.name} avatar={s.avatar} size="base" />
+                      <div className="flex flex-col">
+                        <span className="text-[14px] font-[500] text-ink">{s.name}</span>
+                        <span className="text-[11px] text-ink/40 font-mono">@{s.username}</span>
+                      </div>
                     </div>
                   </td>
 

@@ -42,6 +42,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.nama,
           username: user.username,
           role: user.role,
+          avatar: user.avatar
+            ? (user.avatar.startsWith("data:") ? `/api/users/${user.id}/avatar` : user.avatar)
+            : null,
         };
       },
     }),

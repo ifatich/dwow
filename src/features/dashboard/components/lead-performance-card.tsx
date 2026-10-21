@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import { getStaffColor } from "@/app/individual-metrics/page";
+import UserAvatar from "@/components/shared/user-avatar";
+import SectionSettingsButton from "./section-settings-button";
 
 export interface TeamMemberWorkload {
   username: string;
   name: string;
   hours: number;
   capacity: number;
+  avatar?: string | null;
 }
 
 export interface LeadPerformanceItem {
   username: string;
   name: string;
+  avatar?: string | null;
   projectsCount: number;
   totalTasks: number;
   doneTasks: number;
@@ -27,9 +31,15 @@ export interface LeadPerformanceItem {
 
 interface LeadPerformanceCardProps {
   leads: LeadPerformanceItem[];
+  onOpenSettings?: () => void;
+  showTeamWorkload?: boolean;
 }
 
-export default function LeadPerformanceCard({ leads }: LeadPerformanceCardProps) {
+export default function LeadPerformanceCard({
+  leads,
+  onOpenSettings,
+  showTeamWorkload = false,
+}: LeadPerformanceCardProps) {
   if (!leads || leads.length === 0) return null;
 
   return (
@@ -39,18 +49,26 @@ export default function LeadPerformanceCard({ leads }: LeadPerformanceCardProps)
         <div>
           <h3 className="text-[14px] font-[540] text-ink">Performa Project Lead & Beban Kerja Tim</h3>
           <p className="text-[11px] font-[320] text-ink/40 mt-xxs">
-            Pengawasan performa lead proyek dan distribusi beban kerja tim ({leads.length} Lead Proyek)
+            Pengawasan performa lead proyek ({leads.length} Lead Proyek)
           </p>
         </div>
-        <Link
-          href="/individual-metrics"
-          className="inline-flex items-center gap-xs font-mono text-[10px] uppercase tracking-[0.5px] bg-white border border-hairline-soft hover:border-ink/20 text-ink/70 hover:text-ink rounded-pill px-md py-xs font-[540] transition-all shadow-2xs hover:shadow-xs group"
-        >
-          Lihat Detail
-          <svg className="w-3 h-3 transition-transform group-hover:translate-x-[2px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-          </svg>
-        </Link>
+        <div className="flex items-center gap-xs">
+          <Link
+            href="/individual-metrics"
+            className="inline-flex items-center gap-xs font-mono text-[10px] uppercase tracking-[0.5px] bg-white border border-hairline-soft hover:border-ink/20 text-ink/70 hover:text-ink rounded-pill px-md py-xs font-[540] transition-all shadow-2xs hover:shadow-xs group"
+          >
+            Lihat Detail
+            <svg className="w-3 h-3 transition-transform group-hover:translate-x-[2px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
+          {onOpenSettings && (
+            <SectionSettingsButton
+              onClick={onOpenSettings}
+              title="Atur Tampilan Role: Performa Project Lead"
+            />
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
@@ -71,12 +89,11 @@ export default function LeadPerformanceCard({ leads }: LeadPerformanceCardProps)
               <div>
                 {/* Lead Header */}
                 <div className="flex items-center gap-sm mb-md">
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white font-[600] text-[12px] shadow-xs flex-shrink-0"
-                    style={{ backgroundColor: color }}
-                  >
-                    {initials}
-                  </div>
+                  <UserAvatar
+                    name={lead.name}
+                    avatar={lead.avatar}
+                    size="lg"
+                  />
                   <div className="min-w-0 flex-1">
                     <h4 className="text-[14px] font-[540] text-ink truncate capitalize">{lead.name}</h4>
                     <p className="text-[11px] font-[320] text-ink/40 mt-xxs">
@@ -124,66 +141,72 @@ export default function LeadPerformanceCard({ leads }: LeadPerformanceCardProps)
                   </div>
                 </div>
 
-                {/* Beban Kerja Anggota Tim di Bawah Lead Ini */}
-                <div className="mt-md pt-sm border-t border-hairline-soft">
-                  <div className="flex items-center justify-between mb-xs">
-                    <span className="text-[11px] font-[540] text-ink/70">
-                      Beban Kerja Tim ({lead.teamMembers ? lead.teamMembers.length : 0} Staf)
-                    </span>
-                    <span className="font-mono text-[10px] text-ink/40">Sprint Ini</span>
-                  </div>
-                  {lead.teamMembers && lead.teamMembers.length > 0 ? (
-                    <div className="space-y-sm max-h-[180px] overflow-y-auto pr-xs">
-                      {lead.teamMembers.map((member) => {
-                        const mPct = Math.min(100, (member.hours / member.capacity) * 100);
-                        const mIsOver = member.hours > member.capacity;
-                        const mColor = getStaffColor(member.username || member.name);
+                {/* Beban Kerja Anggota Tim di Bawah Lead Ini (Disembunyikan untuk semua role sesuai permintaan user) */}
+                {showTeamWorkload && (
+                  <div className="mt-md pt-sm border-t border-hairline-soft">
+                    <div className="flex items-center justify-between mb-xs">
+                      <span className="text-[11px] font-[540] text-ink/70">
+                        Beban Kerja Tim ({lead.teamMembers ? lead.teamMembers.length : 0} Staf)
+                      </span>
+                      <span className="font-mono text-[10px] text-ink/40">Sprint Ini</span>
+                    </div>
+                    {lead.teamMembers && lead.teamMembers.length > 0 ? (
+                      <div className="space-y-sm max-h-[180px] overflow-y-auto pr-xs">
+                        {lead.teamMembers.map((member) => {
+                          const mPct = Math.min(100, (member.hours / member.capacity) * 100);
+                          const mIsOver = member.hours > member.capacity;
+                          const mColor = getStaffColor(member.username || member.name);
 
-                        return (
-                          <div key={member.username} className="flex items-center gap-sm">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[8px] font-[540] flex-shrink-0" style={{ backgroundColor: mColor }}>
-                              {member.name.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-center mb-xxs">
-                                <span className="truncate text-ink/70 font-[450] text-[12px] capitalize">{member.name}</span>
-                                <span className={`font-mono text-[12px] font-[540] tabular-nums ml-sm flex-shrink-0 ${mIsOver ? "text-red-500" : "text-ink"}`}>
-                                  {Math.round(member.hours)}j / {member.capacity}j
-                                </span>
+                          return (
+                            <div key={member.username} className="flex items-center gap-sm">
+                              <UserAvatar
+                                name={member.name}
+                                avatar={member.avatar}
+                                size="md"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-xxs">
+                                  <span className="truncate text-ink/70 font-[450] text-[12px] capitalize">{member.name}</span>
+                                  <span className={`font-mono text-[12px] font-[540] tabular-nums ml-sm flex-shrink-0 ${mIsOver ? "text-red-500" : "text-ink"}`}>
+                                    {Math.round(member.hours)}j / {member.capacity}j
+                                  </span>
+                                </div>
+                                <div className="w-full h-[8px] bg-hairline/50 rounded-full overflow-hidden relative">
+                                  <div className="absolute inset-y-0 right-0 w-[1px] bg-ink/10" style={{ right: "0%" }} />
+                                  <div
+                                    className="h-full rounded-full transition-all duration-700"
+                                    style={{
+                                      width: `${Math.max(mPct, member.hours > 0 ? 2 : 0)}%`,
+                                      backgroundColor: mIsOver ? "#ef4444" : mColor,
+                                    }}
+                                  />
+                                </div>
                               </div>
-                              <div className="w-full h-[8px] bg-hairline/50 rounded-full overflow-hidden relative">
-                                <div className="absolute inset-y-0 right-0 w-[1px] bg-ink/10" style={{ right: "0%" }} />
-                                <div
-                                  className="h-full rounded-full transition-all duration-700"
-                                  style={{
-                                    width: `${Math.max(mPct, member.hours > 0 ? 2 : 0)}%`,
-                                    backgroundColor: mIsOver ? "#ef4444" : mColor,
-                                  }}
-                                />
-                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="py-md text-center text-[11px] text-ink/40 italic">
-                      Belum ada staf yang ditugaskan ke Lead ini.
-                    </div>
-                  )}
-                </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="py-md text-center text-[11px] text-ink/40 italic">
+                        Belum ada staf yang ditugaskan ke Lead ini.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Micro Stats Footer */}
               <div className="pt-xs mt-sm border-t border-hairline-soft flex items-center justify-between text-[11px] text-ink/40">
                 <span>Status Approval:</span>
                 {lead.reviewPendingCount > 0 ? (
-                  <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-amber-700 bg-amber-100/80 rounded-pill px-sm py-xxs font-[540] border border-amber-200">
-                    ⚠️ {lead.reviewPendingCount} Membutuhkan Review
+                  <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-amber-700 bg-amber-100/80 rounded-pill px-sm py-xxs font-[540] border border-amber-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span>{lead.reviewPendingCount} Membutuhkan Review</span>
                   </span>
                 ) : (
-                  <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-emerald-700 bg-emerald-100/80 rounded-pill px-sm py-xxs font-[540] border border-emerald-200">
-                    ✓ Tidak Ada Tunggakan Review
+                  <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-emerald-700 bg-emerald-100/80 rounded-pill px-sm py-xxs font-[540] border border-emerald-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>Tidak Ada Tunggakan Review</span>
                   </span>
                 )}
               </div>

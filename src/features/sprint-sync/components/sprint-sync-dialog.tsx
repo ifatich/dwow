@@ -351,6 +351,7 @@ export default function SprintSyncDialog({ open, onClose, onSuccess }: SprintSyn
                 <div className="flex gap-sm items-center">
                   <CustomDropdown
                     className="flex-1"
+                    triggerClassName="h-[42px] rounded-lg text-[14px]"
                     value={selectedSprint}
                     onChange={(val) => {
                       setSelectedSprint(val);

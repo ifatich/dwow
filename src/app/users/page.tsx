@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import BreadcrumbBar from "@/components/shared/breadcrumb-bar";
 import { TableSkeleton } from "@/components/shared/skeletons";
+import CustomDropdown from "@/components/ui/custom-dropdown";
+import UserAvatar from "@/components/shared/user-avatar";
 
 type UserRow = {
   id: string;
@@ -13,6 +15,7 @@ type UserRow = {
   department: string | null;
   capacity: number; // capacityHoursPerMonth
   assignedLeads: Array<{ id: string; nama: string; username: string }>;
+  avatar?: string | null;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -55,6 +58,7 @@ export default function UsersPage() {
         department: u.department,
         capacity: u.capacityHoursPerMonth || 72,
         assignedLeads: u.assignedLeads || [],
+        avatar: u.avatar || null,
       })));
     } catch (err: any) {
       setError(err.message);
@@ -237,33 +241,25 @@ export default function UsersPage() {
                 <input placeholder="Nama" value={newUser.nama} onChange={(e) => setNewUser({ ...newUser, nama: e.target.value })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" />
                 <input placeholder="Username" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" />
                 <input placeholder="Password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" />
-                <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]">
-                  {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
+                <CustomDropdown
+                  className="w-full"
+                  value={newUser.role}
+                  onChange={(val) => setNewUser({ ...newUser, role: val })}
+                  options={Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: v }))}
+                />
                 <input placeholder="Department (opsional)" value={newUser.department} onChange={(e) => setNewUser({ ...newUser, department: e.target.value })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" />
                 <input placeholder="Kapasitas (jam/sprint)" type="number" value={newUser.capacitySprint} onChange={(e) => setNewUser({ ...newUser, capacitySprint: parseInt(e.target.value) || 0 })} className="h-[36px] rounded-md border border-hairline px-sm text-[13px]" min={1} max={160} />
                 {newUser.role === "staff" && (
-                  <div className="relative flex items-center col-span-2">
-                    <select
-                      value={newUser.leadId}
-                      onChange={(e) => setNewUser({ ...newUser, leadId: e.target.value })}
-                      className="w-full h-[36px] rounded-md border border-hairline pl-3 pr-8 text-[13px] bg-canvas text-ink appearance-none focus:outline-none focus:border-primary"
-                    >
-                      <option value="">— Pilih Lead Penanggung Jawab (Opsional) —</option>
-                      {users
-                        .filter((u) => u.role === "lead")
-                        .map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.nama} (Lead)
-                          </option>
-                        ))}
-                    </select>
-                    <span className="pointer-events-none absolute right-3 text-ink/40">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </span>
-                  </div>
+                  <CustomDropdown
+                    className="w-full col-span-2"
+                    value={newUser.leadId}
+                    onChange={(val) => setNewUser({ ...newUser, leadId: val })}
+                    allOptionLabel="— Pilih Lead Penanggung Jawab (Opsional) —"
+                    allOptionValue=""
+                    options={users
+                      .filter((u) => u.role === "lead")
+                      .map((l) => ({ value: l.id, label: `${l.nama} (Lead)` }))}
+                  />
                 )}
               </div>
               <div className="flex gap-sm">
@@ -297,9 +293,11 @@ export default function UsersPage() {
                     <tr key={user.id} className="border-b border-hairline-soft hover:bg-surface-soft/30 transition-colors">
                       <td className="px-lg py-md">
                         <div className="flex items-center gap-sm">
-                          <div className="w-[28px] h-[28px] rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-[10px] font-[540] text-primary">{user.nama.slice(0, 2).toUpperCase()}</span>
-                          </div>
+                          <UserAvatar
+                            name={user.nama}
+                            avatar={user.avatar}
+                            size="base"
+                          />
                           <span className="text-[14px] font-[480] text-ink">{user.nama}</span>
                         </div>
                       </td>
@@ -320,8 +318,9 @@ export default function UsersPage() {
                               user.assignedLeads.map((lead) => (
                                 <span
                                   key={lead.id}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-soft border border-hairline text-[11px] font-[480] text-ink"
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-soft border border-hairline text-[11px] font-[480] text-ink"
                                 >
+                                  <UserAvatar name={lead.nama} avatar={(lead as any).avatar} size="2xs" />
                                   <span>{lead.nama}</span>
                                   <button
                                     type="button"
@@ -337,29 +336,23 @@ export default function UsersPage() {
                               <span className="text-[11px] text-ink/35 italic mr-1">Belum ada Lead</span>
                             )}
 
-                            <div className="relative inline-flex items-center">
-                              <select
-                                value=""
-                                onChange={(e) => {
-                                  if (e.target.value) handleAssignLead(user.id, e.target.value);
-                                }}
-                                className="h-[22px] text-[10px] rounded border border-hairline bg-canvas pl-2 pr-4 text-ink/60 hover:text-ink cursor-pointer focus:outline-none appearance-none"
-                              >
-                                <option value="">+ Lead</option>
-                                {users
-                                  .filter((u) => u.role === "lead" && !user.assignedLeads?.some((al) => al.id === u.id))
-                                  .map((l) => (
-                                    <option key={l.id} value={l.id}>
-                                      {l.nama}
-                                    </option>
-                                  ))}
-                              </select>
-                              <span className="pointer-events-none absolute right-1 text-ink/40">
-                                <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="6 9 12 15 18 9" />
-                                </svg>
-                              </span>
-                            </div>
+                            <CustomDropdown
+                              value=""
+                              onChange={(val) => {
+                                if (val) handleAssignLead(user.id, val);
+                              }}
+                              allOptionLabel="+ Lead"
+                              allOptionValue=""
+                              minWidth="140px"
+                              triggerClassName="h-[24px] text-[11px] px-2 py-0"
+                              options={users
+                                .filter((u) => u.role === "lead" && !user.assignedLeads?.some((al) => al.id === u.id))
+                                .map((l) => ({
+                                  value: l.id,
+                                  label: l.nama,
+                                  icon: <UserAvatar name={l.nama} avatar={l.avatar} size="xs" />,
+                                }))}
+                            />
                           </div>
                         ) : user.role === "lead" ? (
                           <span className="text-[11px] font-[500] text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">

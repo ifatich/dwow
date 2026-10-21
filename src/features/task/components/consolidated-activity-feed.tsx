@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Subtask, ActivityLogEntry } from "@/lib/types";
-import { STAFF_COLORS } from "@/features/task/components/staff-time-summary";
+import UserAvatar from "@/components/shared/user-avatar";
+import { cleanLogNote } from "@/lib/clean-log-note";
 
 interface ConsolidatedActivityFeedProps {
   subtasks: Subtask[];
@@ -18,10 +19,6 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   approved: { label: "Disetujui", color: "#22c55e" },
   revision_requested: { label: "Revisi", color: "#ef4444" },
 };
-
-function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -111,14 +108,7 @@ export default function ConsolidatedActivityFeed({ subtasks }: ConsolidatedActiv
                 />
 
                 {/* Avatar */}
-                <div
-                  className="w-[22px] h-[22px] rounded-full flex items-center justify-center flex-shrink-0 mt-[2px]"
-                  style={{ backgroundColor: STAFF_COLORS[entry.staffName] || "#6b7280" }}
-                >
-                  <span className="text-[7px] font-[540] text-white leading-none">
-                    {getInitials(entry.staffName)}
-                  </span>
-                </div>
+                <UserAvatar name={entry.staffName} size="xs" className="mt-[2px]" />
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -138,7 +128,7 @@ export default function ConsolidatedActivityFeed({ subtasks }: ConsolidatedActiv
                     )}
                   </div>
                   {entry.note && (
-                    <p className="text-[11px] font-[320] text-ink/40 mt-xxs leading-[1.4] break-words">{entry.note}</p>
+                    <p className="text-[11px] font-[320] text-ink/50 mt-xxs leading-[1.4] break-words">{cleanLogNote(entry.note)}</p>
                   )}
                 </div>
               </div>

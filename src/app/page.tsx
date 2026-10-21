@@ -18,6 +18,11 @@ import {
 } from "@/components/shared/skeletons";
 import SprintSyncDialog from "@/features/sprint-sync/components/sprint-sync-dialog";
 import WhatsNewSection from "@/features/dashboard/components/whats-new-section";
+import { useDashboardVisibility } from "@/features/dashboard/hooks/use-dashboard-visibility";
+import type { DashboardSectionKey } from "@/features/dashboard/types/visibility-types";
+import SectionSettingsModal from "@/features/dashboard/components/section-settings-modal";
+import SectionSettingsButton from "@/features/dashboard/components/section-settings-button";
+import SectionHiddenPlaceholder from "@/features/dashboard/components/section-hidden-placeholder";
 
 const TaskDistributionChart = dynamic(
   () => import("@/features/dashboard/components/task-distribution-chart"),
@@ -36,7 +41,8 @@ interface DashboardData {
   activeSprint?: string;
   stats: { totalTasks: number; inProgressCount: number; overdueCount: number; doneCount: number };
   projects: { id: string; name: string; description: string; goals: string; dod: string; sprint: string; lead: string; totalTasks: number; doneTasks: number; totalHours: number }[];
-  reviewTasks: { id: string; ticketId: string; title: string; status: string; priority: string; picName: string; lead: string; project: string; projectId: string; deadline: string; subtaskDone: number; subtaskTotal: number }[];
+  tasks?: { id: string; ticketId: string; title: string; status: string; priority: string; deadline?: string; project?: string; projectId?: string }[];
+  reviewTasks: { id: string; ticketId: string; title: string; status: string; priority: string; picName: string; lead: string; project: string; projectId: string; deadline: string; subtaskDone: number; subtaskTotal: number; reviewSubtasksCount?: number }[];
   statusDistribution: Record<string, number>;
   workload: { username: string; name: string; hours: number; capacity: number }[];
   leadsPerformance?: any[];
@@ -49,23 +55,39 @@ export default function Home() {
 
   const isReviewer = role === "lead" || role === "kadep" || role === "super_admin" || role === "kadiv";
   const isExecutive = role === "super_admin" || role === "kadep" || role === "kadiv";
+  const { visibility, isSectionVisibleForRole, updateSectionVisibility, mounted } = useDashboardVisibility();
+  const isAdmin = mounted && (role === "super_admin" || username?.toLowerCase() === "admin");
+
+  const [activeSettingsSection, setActiveSettingsSection] = useState<DashboardSectionKey | null>(null);
+
+  const handleOpenSettings = (secKey: DashboardSectionKey) => {
+    setActiveSettingsSection(secKey);
+  };
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   const fetchDashboardData = useCallback(() => {
+    if (typeof window !== "undefined" && window.location.pathname === "/login") return;
     const params = new URLSearchParams({ role, username: username || "" });
     fetch(`/api/dashboard?${params}`)
-      .then((r) => r.json())
-      .then((d) => { setData(d); })
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then((d) => { if (d) setData(d); })
       .catch(() => {});
   }, [role, username]);
 
   const fetchSpreadsheetInfo = useCallback(() => {
+    if (typeof window !== "undefined" && window.location.pathname === "/login") return;
     fetch("/api/settings/spreadsheet")
-      .then((r) => r.json())
-      .then((d) => { if (d.lastSyncAt) setLastSync(d.lastSyncAt); })
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then((d) => { if (d?.lastSyncAt) setLastSync(d.lastSyncAt); })
       .catch(() => {});
   }, []);
 
@@ -82,9 +104,9 @@ export default function Home() {
   const isLoaded = Boolean(data);
   const stats = data?.stats || { totalTasks: 0, inProgressCount: 0, overdueCount: 0, doneCount: 0, unassignedSubtasksCount: 0 };
   const projects = data?.projects || [];
-  const reviewTasks = data?.reviewTasks || [];
+  const reviewTasks = role === "super_admin" ? [] : (data?.reviewTasks || []);
   const workload = data?.workload || [];
-  const userTasksForDeadline = reviewTasks as any[];
+  const userTasksForDeadline = role === "super_admin" ? [] : ((data?.tasks as any[]) || []);
 
   return (
     <div className="flex flex-col flex-1">
@@ -103,7 +125,7 @@ export default function Home() {
           </div>
         }
       >
-        <DeadlineNotification tasks={userTasksForDeadline} />
+        <DeadlineNotification tasks={userTasksForDeadline} reviewTasks={reviewTasks} />
         <HeaderAvatar />
       </PageHeader>
 
@@ -133,19 +155,17 @@ export default function Home() {
 
           {/* Mode Pengawasan Eksekutif (Manajerial Overview) */}
           {isExecutive && (
-            <div className="flex items-center justify-between gap-md mb-lg p-md rounded-xl bg-blue-50/60 border border-blue-200/80 text-blue-900 shadow-xs">
-              <div className="flex items-center gap-sm">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[13px] flex-shrink-0 shadow-xs">
-                  👁️
-                </div>
-                <div>
-                  <h4 className="text-[13px] font-[600]">Mode Pengawasan Eksekutif ({role.toUpperCase()})</h4>
-                  <p className="text-[11px] text-blue-700/80">
-                    Menampilkan ringkasan data agregat seluruh tim & departemen untuk pengawasan manajerial.
-                  </p>
+            <div className="flex items-center justify-between gap-md mb-lg px-md py-sm rounded-lg bg-blue-50/60 border border-blue-200/70 text-blue-900">
+              <div className="flex items-center gap-sm min-w-0">
+                <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-xs flex-wrap">
+                    <h4 className="text-[12px] font-[600]">Mode Pengawasan Eksekutif ({role.toUpperCase()})</h4>
+                    <span className="text-[11px] text-blue-700/80 hidden sm:inline">— Menampilkan ringkasan data agregat seluruh tim & departemen untuk pengawasan manajerial.</span>
+                  </div>
                 </div>
               </div>
-              <span className="font-mono text-[10px] uppercase tracking-[0.5px] bg-blue-100/80 text-blue-800 rounded-pill px-md py-xxs font-[550] border border-blue-200 flex-shrink-0">
+              <span className="font-mono text-[9px] uppercase tracking-[0.5px] bg-blue-100/90 text-blue-800 rounded-pill px-sm py-xxs font-[550] border border-blue-200 flex-shrink-0">
                 Agregat Organisasi
               </span>
             </div>
@@ -153,21 +173,21 @@ export default function Home() {
 
           {/* Peringatan Subtask Belum Ditugaskan (Unassigned Subtasks) */}
           {(stats as any).unassignedSubtasksCount > 0 && isReviewer && (
-            <div className="flex items-center justify-between gap-md mb-lg p-md rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 shadow-xs">
-              <div className="flex items-center gap-sm">
-                <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[13px] flex-shrink-0">
-                  ⚠️
-                </div>
-                <div>
-                  <h4 className="text-[13px] font-[600]">Peringatan Subtask Belum Ditugaskan</h4>
-                  <p className="text-[11px] text-amber-700/90">
-                    Terdapat <span className="font-[600] text-amber-900">{(stats as any).unassignedSubtasksCount} subtask</span> di Sprint ini yang belum memiliki eksekutor (staffId).
-                  </p>
+            <div className="flex items-center justify-between gap-md mb-lg px-md py-sm rounded-lg bg-amber-50/70 border border-amber-200 text-amber-900">
+              <div className="flex items-center gap-sm min-w-0">
+                <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-xs flex-wrap">
+                    <h4 className="text-[12px] font-[600]">Peringatan Subtask Belum Ditugaskan</h4>
+                    <span className="text-[11px] text-amber-700/90 hidden sm:inline">
+                      — Terdapat <strong className="font-[600] text-amber-900">{(stats as any).unassignedSubtasksCount} subtask</strong> di Sprint ini yang belum memiliki eksekutor.
+                    </span>
+                  </div>
                 </div>
               </div>
               <a
                 href="/sprint-history"
-                className="text-[11px] font-[550] text-amber-800 bg-amber-100 hover:bg-amber-200/80 px-md py-xs rounded-lg transition-colors border border-amber-300/60 flex-shrink-0"
+                className="text-[11px] font-[550] text-amber-800 bg-amber-100 hover:bg-amber-200/80 px-sm py-xxs rounded-md transition-colors border border-amber-300/60 flex-shrink-0"
               >
                 Tinjau Subtask →
               </a>
@@ -203,43 +223,100 @@ export default function Home() {
           {/* ========================================================================
            * Section 4B: Performa Lead Proyek Container
            * ======================================================================== */}
-          {!isLoaded ? (
+          {!isSectionVisibleForRole("lead_performance", role) ? (
+            isAdmin ? (
+              <SectionHiddenPlaceholder
+                title="Performa Project Lead & Beban Kerja Tim"
+                onOpenSettings={() => handleOpenSettings("lead_performance")}
+              />
+            ) : null
+          ) : !isLoaded ? (
             <LeadPerformanceSkeleton />
           ) : (
-            <LeadPerformanceCard leads={(data as any)?.leadsPerformance || []} />
+            <LeadPerformanceCard
+              leads={(data as any)?.leadsPerformance || []}
+              onOpenSettings={isAdmin ? () => handleOpenSettings("lead_performance") : undefined}
+            />
           )}
 
           {/* ========================================================================
            * Section 2: Daftar Proyek Container
            * ======================================================================== */}
-          <div className="mb-xxl">
-            <h2 className="text-[24px] font-[540] text-ink mb-lg">
-              {role === "staff" ? "Proyek Saya" : "Proyek Aktif"}
-            </h2>
-            {!isLoaded ? (
-              <ProjectGridSkeleton />
-            ) : projects.length === 0 ? (
-              <div className="text-[13px] text-ink/30 py-xxl text-center bg-surface-soft/30 rounded-lg border border-hairline">
-                Belum ada proyek dengan tugas untuk Anda.
+          {!isSectionVisibleForRole("projects_list", role) ? (
+            isAdmin ? (
+              <SectionHiddenPlaceholder
+                title="Daftar Proyek"
+                onOpenSettings={() => handleOpenSettings("projects_list")}
+              />
+            ) : null
+          ) : (
+            <div className="mb-xxl">
+              <div className="flex items-center justify-between mb-lg">
+                <h2 className="text-[24px] font-[540] text-ink">
+                  {role === "staff" ? "Proyek Saya" : "Proyek Aktif"}
+                </h2>
+                {isAdmin && (
+                  <SectionSettingsButton
+                    onClick={() => handleOpenSettings("projects_list")}
+                    title="Atur Tampilan Role: Daftar Proyek"
+                  />
+                )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md items-start">
-                {projects.map((p) => (
-                  <ProjectCard key={p.id} project={{ id: p.id, name: p.name, description: p.description, goals: p.goals, dod: p.dod, sprint: p.sprint, lead: p.lead, totalTasks: p.totalTasks, doneTasks: p.doneTasks, reviewTasks: (p as any).reviewTasks, inProgressTasks: (p as any).inProgressTasks, todoTasks: (p as any).todoTasks } as any} userTaskCount={role === "staff" ? (p as any).userTaskCount : undefined} isLeadProject={(p as any).isLeadProject} />
-                ))}
-              </div>
-            )}
-          </div>
+              {!isLoaded ? (
+                <ProjectGridSkeleton />
+              ) : projects.length === 0 ? (
+                <div className="text-[13px] text-ink/30 py-xxl text-center bg-surface-soft/30 rounded-lg border border-hairline">
+                  Belum ada proyek dengan tugas untuk Anda.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md items-stretch">
+                  {projects.map((p) => (
+                    <ProjectCard
+                      key={p.id}
+                      project={{
+                        id: p.id,
+                        name: p.name,
+                        description: p.description,
+                        goals: p.goals,
+                        dod: p.dod,
+                        sprint: p.sprint,
+                        lead: p.lead,
+                        totalTasks: p.totalTasks,
+                        doneTasks: p.doneTasks,
+                        reviewTasks: (p as any).reviewTasks,
+                        inProgressTasks: (p as any).inProgressTasks,
+                        todoTasks: (p as any).todoTasks,
+                        reviewSubtasksCount: (p as any).reviewSubtasksCount,
+                      } as any}
+                      userTaskCount={role === "staff" ? (p as any).userTaskCount : undefined}
+                      isLeadProject={(p as any).isLeadProject}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ========================================================================
            * Section 4: Chart Beban Kerja Container
            * ======================================================================== */}
-          {!isExecutive && (
+          {!isSectionVisibleForRole("workload_chart", role) ? (
+            isAdmin ? (
+              <SectionHiddenPlaceholder
+                title="Grafik Beban Kerja Tim"
+                onOpenSettings={() => handleOpenSettings("workload_chart")}
+              />
+            ) : null
+          ) : (
             <div className="mb-xxl">
               {!isLoaded ? (
                 <div className="bg-canvas border border-hairline rounded-lg p-lg h-[280px] animate-pulse shadow-xs" />
               ) : (
-                <WorkloadChart tasks={workload as any} currentUser={role === "staff" ? currentUser?.username : undefined} />
+                <WorkloadChart
+                  tasks={workload as any}
+                  currentUser={role === "staff" ? currentUser?.username : undefined}
+                  onOpenSettings={isAdmin ? () => handleOpenSettings("workload_chart") : undefined}
+                />
               )}
             </div>
           )}
@@ -247,23 +324,68 @@ export default function Home() {
           {/* ========================================================================
            * Section 5: Daftar Perlu Review Container
            * ======================================================================== */}
-          {reviewTasks.length > 0 && role === "lead" && (
+          {!isSectionVisibleForRole("review_tasks", role) ? (
+            isAdmin ? (
+              <SectionHiddenPlaceholder
+                title="Daftar Perlu Review"
+                onOpenSettings={() => handleOpenSettings("review_tasks")}
+              />
+            ) : null
+          ) : reviewTasks.length > 0 ? (
             <div className="mt-xxl">
-              <h2 className="text-[20px] font-[540] text-ink mb-md">Perlu Review</h2>
+              <div className="flex items-center justify-between mb-md flex-wrap gap-sm">
+                <div className="flex items-center gap-sm flex-wrap">
+                  <h2 className="text-[20px] font-[540] text-ink">Perlu Review</h2>
+                  <span className="inline-flex items-center gap-1.5 rounded-pill bg-amber-500 text-white px-3 py-1 text-[11px] font-[600] shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    <span>
+                      {reviewTasks.reduce((sum, t) => sum + ((t as any).reviewSubtasksCount || 1), 0)} Subtask Menunggu Review
+                    </span>
+                  </span>
+                </div>
+                {isAdmin && (
+                  <SectionSettingsButton
+                    onClick={() => handleOpenSettings("review_tasks")}
+                    title="Atur Tampilan Role: Daftar Perlu Review"
+                  />
+                )}
+              </div>
               <div className="space-y-sm">
                 {reviewTasks.map((t) => (
                   <ReviewTaskCard key={t.id} task={t as any} />
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* ========================================================================
            * Section 6: What's New & Log Aktivitas Pembaruan Sistem (Selalu Tampil Instan)
            * ======================================================================== */}
-          <WhatsNewSection />
+          {!isSectionVisibleForRole("whats_new", role) ? (
+            isAdmin ? (
+              <SectionHiddenPlaceholder
+                title="Catatan Rilis & Log Pembaruan"
+                onOpenSettings={() => handleOpenSettings("whats_new")}
+              />
+            ) : null
+          ) : (
+            <WhatsNewSection
+              onOpenSettings={isAdmin ? () => handleOpenSettings("whats_new") : undefined}
+            />
+          )}
         </div>
       </main>
+
+      {/* Modal Pengaturan Visibilitas Section per Role (Khusus Admin) */}
+      <SectionSettingsModal
+        open={Boolean(activeSettingsSection)}
+        sectionKey={activeSettingsSection}
+        currentVisibility={activeSettingsSection ? visibility[activeSettingsSection] : ({} as any)}
+        onClose={() => setActiveSettingsSection(null)}
+        onSave={async (key, roleMap) => {
+          await updateSectionVisibility(key, roleMap);
+        }}
+      />
 
       {/* Dialog Sinkronisasi Sprint Google Sheets */}
       <SprintSyncDialog

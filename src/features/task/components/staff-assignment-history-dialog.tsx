@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { StaffAssignmentHistoryLog } from "@/lib/types";
+import UserAvatar from "@/components/shared/user-avatar";
+import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 
 interface StaffOption {
   id: string;
   username: string;
   nama: string;
   role: string;
+  avatar?: string | null;
   assignedLeads?: Array<{ id: string; nama: string; username: string }>;
 }
 
@@ -19,6 +22,8 @@ interface StaffAssignmentHistoryDialogProps {
   assignmentHistory?: StaffAssignmentHistoryLog[];
   availableStaff?: string[];
   taskLead?: string;
+  currentUser?: string;
+  userRole?: string;
   onClose: () => void;
   onReassign: (newAssignees: string[], reason: string) => Promise<void> | void;
 }
@@ -42,9 +47,36 @@ export default function StaffAssignmentHistoryDialog({
   assignmentHistory: initialHistory = [],
   availableStaff = [],
   taskLead,
+  currentUser,
+  userRole,
   onClose,
   onReassign,
 }: StaffAssignmentHistoryDialogProps) {
+  const sessionUser = useCurrentUser();
+  const effectiveUsername = (currentUser || sessionUser?.username || "")?.toLowerCase().trim();
+  const effectiveName = (sessionUser?.name || "")?.toLowerCase().trim();
+  const effectiveRole = userRole || sessionUser?.role;
+
+  const isManagerOrAdmin =
+    effectiveRole === "super_admin" ||
+    effectiveRole === "kadep" ||
+    effectiveRole === "kadiv" ||
+    effectiveUsername === "admin";
+
+  const isCurrentTaskLead = !!(
+    taskLead &&
+    (effectiveUsername === taskLead.toLowerCase().trim() ||
+     effectiveName === taskLead.toLowerCase().trim())
+  );
+
+  // Tiket owner / yang terlibat (assignee subtask)
+  const isAssigneeOrOwner = currentAssignees.some((a) => {
+    const norm = a.toLowerCase().trim();
+    return norm === effectiveUsername || norm === effectiveName;
+  });
+
+  const canReassign = isManagerOrAdmin || isCurrentTaskLead || isAssigneeOrOwner;
+
   const [history, setHistory] = useState<StaffAssignmentHistoryLog[]>(initialHistory);
   const [loading, setLoading] = useState(false);
   const [showReassignForm, setShowReassignForm] = useState(false);
@@ -229,26 +261,50 @@ export default function StaffAssignmentHistoryDialog({
             <span className="font-semibold text-gray-800">Pelaksana Aktif:</span>
             <div className="flex flex-wrap gap-1">
               {currentAssignees.map((a) => (
-                <span key={a} className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-medium border border-indigo-100 capitalize">
-                  {a}
+                <span key={a} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-medium border border-indigo-100 capitalize">
+                  <UserAvatar name={a} size="2xs" />
+                  <span>{a}</span>
                 </span>
               ))}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              const next = !showReassignForm;
-              setShowReassignForm(next);
-              if (next && userList.length === 0) {
-                fetchUsers();
-              }
-            }}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            {showReassignForm ? "Tutup Form" : "Re-alokasi Staf"}
-          </button>
+          {canReassign ? (
+            <button
+              type="button"
+              onClick={() => {
+                const next = !showReassignForm;
+                setShowReassignForm(next);
+                if (next && userList.length === 0) {
+                  fetchUsers();
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+            >
+              {showReassignForm ? "Tutup Form" : "Re-alokasi Staf"}
+            </button>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-soft text-ink/40 text-xs font-medium border border-hairline/80 select-none"
+              title="Hanya pelaksana tiket atau Lead penanggung jawab yang dapat mengubah tim"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span>Akses Terkunci</span>
+            </span>
+          )}
         </div>
+
+        {!canReassign && (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50/70 border border-amber-200/60 text-amber-800 text-[11px] mb-xs animate-fadeIn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-amber-600">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <span>Histori tim bersifat read-only. Perubahan tim hanya dapat dilakukan oleh pelaksana tiket yang terlibat, Lead penanggung jawab task ini, atau Admin.</span>
+          </div>
+        )}
 
         {/* Re-assignment Form Collapsible */}
         {showReassignForm && (
@@ -335,15 +391,11 @@ export default function StaffAssignmentHistoryDialog({
                               : "bg-white text-gray-700 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30"
                           }`}
                         >
-                          <span
-                            className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                            style={{
-                              backgroundColor: selected ? "rgba(255,255,255,0.25)" : "#e0e7ff",
-                              color: selected ? "#ffffff" : "#4338ca",
-                            }}
-                          >
-                            {u.nama.charAt(0).toUpperCase()}
-                          </span>
+                          <UserAvatar
+                            name={u.nama}
+                            avatar={u.avatar}
+                            size="xs"
+                          />
                           <span>{u.nama}</span>
                           {isLeadMember && !selected && (
                             <span className="text-[9px] text-indigo-500 font-normal">
@@ -447,11 +499,9 @@ export default function StaffAssignmentHistoryDialog({
 
                     <div className="bg-gray-50/80 hover:bg-gray-50 p-sm rounded-lg border border-gray-100 transition-colors">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
-                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] flex items-center justify-center font-bold">
-                            {item.changedBy.charAt(0).toUpperCase()}
-                          </span>
-                          {item.changedBy}
+                        <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                          <UserAvatar name={item.changedBy} size="2xs" />
+                          <span>{item.changedBy}</span>
                         </span>
                         <span className="text-[10px] text-gray-400 font-mono">{formattedDate}</span>
                       </div>
@@ -466,9 +516,10 @@ export default function StaffAssignmentHistoryDialog({
                               return (
                                 <span
                                   key={`${item.id}-prev-${idx}-${name}`}
-                                  className="px-1.5 py-0.2 rounded bg-gray-200 text-gray-600"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-200 text-gray-600"
                                 >
-                                  {name}
+                                  <UserAvatar name={name} size="2xs" />
+                                  <span>{name}</span>
                                 </span>
                               );
                             })
@@ -483,9 +534,10 @@ export default function StaffAssignmentHistoryDialog({
                               return (
                                 <span
                                   key={`${item.id}-next-${idx}-${name}`}
-                                  className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 font-medium"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-medium"
                                 >
-                                  {name}
+                                  <UserAvatar name={name} size="2xs" />
+                                  <span>{name}</span>
                                 </span>
                               );
                             })

@@ -32,6 +32,11 @@ export async function GET(request: NextRequest) {
     ]);
 
     const userMap = new Map(allUsers.map((u) => [u.id, u]));
+    const userByNameOrUsername = new Map<string, typeof allUsers[0]>();
+    for (const u of allUsers) {
+      if (u.nama) userByNameOrUsername.set(u.nama.toLowerCase().trim(), u);
+      if (u.username) userByNameOrUsername.set(u.username.toLowerCase().trim(), u);
+    }
     const userObj = allUsers.find((u) => u.username === username || u.id === username);
     const userId = userObj?.id || "";
 
@@ -107,8 +112,13 @@ export async function GET(request: NextRequest) {
       return new Date(t.deadline) < now;
     }).length;
 
-    // Review tasks (for lead+)
-    const reviewTasks = filteredTasks
+    // Review tasks (for lead only) — Task review hanya diberikan kepada role lead pada level task miliknya, persisten sampai seluruh subtask selesai direview. Admin/eksekutif tidak memiliki antrean review pribadi.
+    const reviewCandidateTasks =
+      role === "lead"
+        ? allTasks.filter((t) => t.leadId === userId || (userObj && (t.leadId === userObj.id || (userObj.username && userMap.get(t.leadId || "")?.username === userObj.username))))
+        : [];
+
+    const reviewTasks = reviewCandidateTasks
       .filter((t) => {
         const tSubtasks = allSubtasks.filter((s) => s.taskId === t.id);
         return tSubtasks.some((s) => s.status === "review");
@@ -116,8 +126,28 @@ export async function GET(request: NextRequest) {
       .map((t) => {
         const project = allProjects.find((p) => p.id === t.projectId);
         const leadUser = t.leadId ? userMap.get(t.leadId) : null;
+        const picUser = t.picName ? userByNameOrUsername.get(t.picName.toLowerCase().trim()) : null;
         const tSubtasks = allSubtasks.filter((s) => s.taskId === t.id);
         const doneSub = tSubtasks.filter((s) => s.status === "done").length;
+        const subtasksInReview = tSubtasks
+          .filter((s) => s.status === "review")
+          .map((s) => {
+            const assignees = allAssignees
+              .filter((a) => a.subtaskId === s.id)
+              .map((a) => {
+                const u = a.staffId ? userMap.get(a.staffId) : null;
+                return u?.username || u?.nama || "";
+              })
+              .filter(Boolean);
+            return {
+              id: s.id,
+              title: s.title,
+              status: s.status,
+              assignees,
+              workloadHours: s.workloadHours || 0,
+            };
+          });
+
         return {
           id: t.id,
           ticketId: t.ticketId,
@@ -125,12 +155,17 @@ export async function GET(request: NextRequest) {
           status: t.status,
           priority: t.priority,
           picName: t.picName,
+          picAvatar: picUser?.avatar || null,
           lead: leadUser?.username || "—",
+          leadName: leadUser?.nama || "—",
+          leadAvatar: leadUser?.avatar || null,
           project: project?.title || "—",
           projectId: project?.id || "",
           deadline: t.deadline,
           subtaskDone: doneSub,
           subtaskTotal: tSubtasks.length,
+          reviewSubtasksCount: subtasksInReview.length,
+          reviewSubtasks: subtasksInReview,
         };
       });
 
@@ -172,6 +207,18 @@ export async function GET(request: NextRequest) {
         const count = allAssignees.filter((a) => a.subtaskId === s.id).length || 1;
         return sum + (s.workloadHours || 0) * count;
       }, 0);
+
+      // Hitung subtask yang butuh di-review oleh user ini:
+      // Hanya bagi role lead: subtask dalam review pada task yang dipimpin oleh Lead ini.
+      // Admin tidak memiliki task review personal pada card proyek.
+      const isLeadRole = role === "lead";
+      const tasksToConsider = isLeadRole
+        ? allPtasks.filter((t) => t.leadId === userId || (userObj && (t.leadId === userObj.id || (userObj.username && userMap.get(t.leadId || "")?.username === userObj.username))))
+        : [];
+      const reviewSubtasksCount = allSubtasks.filter((s) =>
+        tasksToConsider.some((t) => t.id === s.taskId) && s.status === "review"
+      ).length;
+
       return {
         id: p.id,
         name: p.title,
@@ -187,7 +234,8 @@ export async function GET(request: NextRequest) {
         todoTasks: ptodo,
         totalHours: pHours,
         userTaskCount: role === "staff" ? userPtasks.length : undefined,
-        isLeadProject: role === "lead" && p.leadId === userId,
+        isLeadProject: role === "lead" && (p.leadId === userId || (userObj && (p.leadId === userObj.id || (userObj.username && userMap.get(p.leadId || "")?.username === userObj.username)))),
+        reviewSubtasksCount,
       };
     });
 
@@ -215,7 +263,14 @@ export async function GET(request: NextRequest) {
       .map(([uname, hours]) => {
         const u = allUsers.find((x) => x.username === uname);
         const sprintCap = u?.capacityHoursPerMonth || 72; // Kapasitas jam langsung per 2-week sprint
-        return { username: uname, name: u?.nama || uname, role: u?.role || "staff", hours, capacity: sprintCap };
+        return {
+          username: uname,
+          name: u?.nama || uname,
+          role: u?.role || "staff",
+          hours,
+          capacity: sprintCap,
+          avatar: u?.avatar || null,
+        };
       })
       .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name));
 
@@ -328,6 +383,7 @@ export async function GET(request: NextRequest) {
         return {
           username: lead.username,
           name: lead.nama,
+          avatar: lead.avatar || null,
           projectsCount: ledProjects.length,
           totalTasks,
           doneTasks,
@@ -337,7 +393,13 @@ export async function GET(request: NextRequest) {
           ownSubtasksTotal,
           ownSubtasksDone,
           ownWorkloadHours,
-          teamMembers,
+          teamMembers: teamMembers.map((m) => {
+            const memberUser = userByNameOrUsername.get(m.username.toLowerCase().trim()) || userByNameOrUsername.get(m.name.toLowerCase().trim());
+            return {
+              ...m,
+              avatar: memberUser?.avatar || null,
+            };
+          }),
         };
       })
       .sort((a, b) => b.completionRate - a.completionRate || b.totalTasks - a.totalTasks);
@@ -354,6 +416,7 @@ export async function GET(request: NextRequest) {
         priority: t.priority,
         deadline: t.deadline,
         project: allProjects.find((p) => p.id === t.projectId)?.title || "",
+        projectId: t.projectId || "",
       })),
       reviewTasks,
       statusDistribution,

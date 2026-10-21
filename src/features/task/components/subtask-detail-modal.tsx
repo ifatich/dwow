@@ -1,8 +1,10 @@
 "use client";
 
 import { Subtask } from "@/lib/types";
+import UserAvatar from "@/components/shared/user-avatar";
 import StaffTimeSummary from "./staff-time-summary";
 import ActivityLog from "./activity-log";
+import MarkdownViewer from "@/components/shared/markdown-viewer";
 
 interface SubtaskDetailModalProps {
   subtask: Subtask | null;
@@ -49,16 +51,29 @@ export default function SubtaskDetailModal({ subtask, open, onClose }: SubtaskDe
               {subtask.title}
             </h3>
             {subtask.assignees.length === 1 && (
-              <p className="text-[12px] text-ink/50 mt-xxs">
-                Assignee: <strong className="text-ink/70 font-medium capitalize">{subtask.assignees[0]}</strong>
-              </p>
+              <div className="flex items-center gap-1.5 mt-xxs text-[12px] text-ink/50">
+                <span>Assignee:</span>
+                <UserAvatar name={subtask.assignees[0]} size="xs" />
+                <strong className="text-ink/70 font-medium capitalize">{subtask.assignees[0]}</strong>
+              </div>
             )}
             {subtask.assignees.length > 1 && (
-              <p className="text-[12px] text-ink/50 mt-xxs">
-                Owner: <strong className="text-primary font-semibold capitalize">{subtask.assignees[0]}</strong>
-                <span className="text-ink/30 mx-xs">•</span>
-                Co-assignee: <span className="text-ink/70 capitalize">{subtask.assignees.slice(1).join(", ")}</span>
-              </p>
+              <div className="flex items-center gap-2 flex-wrap mt-xxs text-[12px] text-ink/50">
+                <span className="inline-flex items-center gap-1">
+                  Owner: <UserAvatar name={subtask.assignees[0]} size="xs" />
+                  <strong className="text-primary font-semibold capitalize">{subtask.assignees[0]}</strong>
+                </span>
+                <span className="text-ink/30">•</span>
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  Co-assignee:
+                  {subtask.assignees.slice(1).map((ca) => (
+                    <span key={ca} className="inline-flex items-center gap-1">
+                      <UserAvatar name={ca} size="xs" />
+                      <span className="text-ink/70 capitalize">{ca}</span>
+                    </span>
+                  ))}
+                </span>
+              </div>
             )}
           </div>
           <button
@@ -115,7 +130,7 @@ export default function SubtaskDetailModal({ subtask, open, onClose }: SubtaskDe
             <div>
               <span className="font-mono text-[10px] uppercase tracking-[0.6px] text-green-600 block mb-xxs">Bukti Pengerjaan (Evidence)</span>
               <div className="rounded-md bg-green-50/50 border border-green-200/60 p-sm text-[13px] text-ink/80 break-words">
-                {subtask.evidence}
+                <MarkdownViewer content={subtask.evidence} />
               </div>
             </div>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, memo, useMemo, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -16,7 +16,6 @@ import {
 } from "@dnd-kit/core";
 import { Subtask, SubtaskStatus } from "@/lib/types";
 import type { ActivityLogEntry, StaffTimeContribution } from "@/lib/types";
-import { STAFF_COLORS } from "./staff-time-summary";
 import StaffTimeSummary from "./staff-time-summary";
 import EvidenceDialog from "@/features/task/components/evidence-dialog";
 import SubtaskDetailModal from "@/features/task/components/subtask-detail-modal";
@@ -24,6 +23,8 @@ import StaffAssignmentHistoryDialog from "@/features/task/components/staff-assig
 import { useTimerCountdown } from "@/features/task/hooks/use-timer-countdown";
 import { notifyRealtimeSync } from "@/lib/realtime-sync";
 import CustomDropdown from "@/components/ui/custom-dropdown";
+import UserAvatar from "@/components/shared/user-avatar";
+import MarkdownViewer from "@/components/shared/markdown-viewer";
 
 const SUBTASK_COLUMNS: { id: SubtaskStatus; label: string; accent: string }[] = [
   { id: "to_do", label: "To Do", accent: "bg-hairline" },
@@ -89,6 +90,15 @@ function SubtaskCardView({
       : subtask.status === "review" ? []
         : actions;
 
+  // Bukti pengerjaan (Evidence) untuk ditampilkan langsung kepada lead yang mereview
+  const effectiveEvidence =
+    subtask.evidence?.trim() ||
+    subtask.activityLog
+      ?.slice()
+      .reverse()
+      .find((l) => l.action === "review_requested" && l.note && l.note.trim().length > 0)
+      ?.note?.trim();
+
   // Cek apakah subtask ditugaskan ke user yang sedang login
   const normalizedUser = currentUser?.trim().toLowerCase();
   const isMySubtask = normalizedUser
@@ -109,13 +119,15 @@ function SubtaskCardView({
     <div
       className={`rounded-md overflow-hidden transition-all duration-200 ${isDragging
         ? "bg-canvas shadow-lg border border-ink/20"
-        : isMySubtask
-          ? "bg-canvas border-2 border-lime-500"
-          : isDone
-            ? "bg-canvas border border-green-200/60"
-            : isReview
-              ? "bg-canvas border border-amber-200/60"
-              : "bg-canvas border border-hairline hover:border-ink/20 hover:shadow-sm"
+        : isReview && showLeadActions
+          ? "bg-amber-50/40 border-2 border-amber-400 shadow-xs ring-1 ring-amber-300/40"
+          : isMySubtask
+            ? "bg-canvas border-2 border-lime-500"
+            : isDone
+              ? "bg-canvas border border-green-200/60"
+              : isReview
+                ? "bg-canvas border border-amber-200/60"
+                : "bg-canvas border border-hairline hover:border-ink/20 hover:shadow-sm"
         }`}
     >
       <div className="flex items-center gap-sm px-md py-sm">
@@ -125,21 +137,28 @@ function SubtaskCardView({
         </div>
         <div className="flex items-center gap-xs flex-1 min-w-0">
           <span className={`text-[14px] leading-[1.45] truncate ${isDone ? "text-ink/40 line-through" : "text-ink/80"}`}>{subtask.title}</span>
+          {isReview && showLeadActions && (
+            <span className="inline-flex items-center gap-1 rounded-pill bg-amber-500 text-white px-1.5 py-0.5 text-[9px] font-[600] flex-shrink-0 shadow-2xs">
+              Review
+            </span>
+          )}
         </div>
         {subtask.assignees.length > 0 && (
-          <div className="flex -space-x-xxs flex-shrink-0">
+          <div className="flex -space-x-1 flex-shrink-0">
             {subtask.assignees.map((name, idx) => {
               const isUser = normalizedUser && name.toLowerCase() === normalizedUser;
               return (
-                <div
+                <UserAvatar
                   key={name}
-                  className={`w-[20px] h-[20px] rounded-full flex items-center justify-center border border-canvas transition-all ${isUser
-                    ? "ring-1 ring-primary/50 font-bold z-20"
-                    : idx === 0 && subtask.assignees.length > 1
-                      ? "ring-1 ring-primary/40 z-10"
-                      : ""
-                    }`}
-                  style={{ backgroundColor: STAFF_COLORS[name] || "#6b7280" }}
+                  name={name}
+                  size="xs"
+                  className={`border-2 border-canvas transition-all ${
+                    isUser
+                      ? "ring-2 ring-emerald-500 z-20"
+                      : idx === 0 && subtask.assignees.length > 1
+                        ? "z-10"
+                        : ""
+                  }`}
                   title={
                     subtask.assignees.length === 1
                       ? `${name} (Assignee)`
@@ -147,9 +166,7 @@ function SubtaskCardView({
                         ? `${name} (Owner)`
                         : `${name} (Co-assignee)`
                   }
-                >
-                  <span className="text-[7px] font-[540] text-white leading-none">{name.slice(0, 2).toUpperCase()}</span>
-                </div>
+                />
               );
             })}
           </div>
@@ -182,6 +199,30 @@ function SubtaskCardView({
                 Overdue
               </span>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Evidence display langsung di card — hanya untuk lead yang mereview */}
+      {isReview && showLeadActions && (
+        <div className="px-md pb-xs">
+          <div className="rounded-md bg-amber-500/10 border border-amber-300/80 p-xs text-[11px] leading-relaxed">
+            <div className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-amber-800 font-[600] mb-xxs">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className="text-amber-700 shrink-0">
+                <path d="M9 2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7L9 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9 2v5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>Bukti Pengerjaan (Evidence)</span>
+            </div>
+            {effectiveEvidence ? (
+              <div className="text-[12px] font-[450] text-ink/90 break-words select-text">
+                <MarkdownViewer content={effectiveEvidence} compact />
+              </div>
+            ) : (
+              <span className="text-amber-800/60 italic text-[11px]">
+                Belum ada bukti pengerjaan dilampirkan
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -259,7 +300,7 @@ function SubtaskCardView({
   );
 }
 
-function DraggableSubtask({
+const DraggableSubtask = memo(function DraggableSubtask({
   subtask,
   onAction,
   onOpenDetail,
@@ -297,7 +338,7 @@ function DraggableSubtask({
       />
     </div>
   );
-}
+});
 
 function DroppableColumn({
   columnId,
@@ -425,24 +466,36 @@ export default function SubtaskKanban({
     search: "",
     assignee: "",
   });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const uniqueAssignees = Array.from(
-    new Set(subtasks.flatMap((s) => s.assignees))
-  ).sort();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
 
-  const filteredSubtasks = subtasks.filter((s) => {
-    if (filters.search.trim()) {
-      const q = filters.search.toLowerCase();
-      const matchTitle = s.title.toLowerCase().includes(q);
-      const matchDesc = s.description?.toLowerCase().includes(q);
-      const matchAssignee = s.assignees.some((a) => a.toLowerCase().includes(q));
-      if (!matchTitle && !matchDesc && !matchAssignee) return false;
-    }
-    if (filters.assignee && !s.assignees.some((a) => a.toLowerCase() === filters.assignee.toLowerCase())) {
-      return false;
-    }
-    return true;
-  });
+  const uniqueAssignees = useMemo(() => {
+    return Array.from(new Set(subtasks.flatMap((s) => s.assignees))).sort();
+  }, [subtasks]);
+
+  const filteredSubtasks = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    const assigneeFilter = filters.assignee.toLowerCase();
+
+    return subtasks.filter((s) => {
+      if (q) {
+        const matchTitle = s.title.toLowerCase().includes(q);
+        const matchDesc = s.description?.toLowerCase().includes(q);
+        const matchAssignee = s.assignees.some((a) => a.toLowerCase().includes(q));
+        if (!matchTitle && !matchDesc && !matchAssignee) return false;
+      }
+      if (assigneeFilter && !s.assignees.some((a) => a.toLowerCase() === assigneeFilter)) {
+        return false;
+      }
+      return true;
+    });
+  }, [subtasks, debouncedSearch, filters.assignee]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -451,13 +504,20 @@ export default function SubtaskKanban({
   };
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor));
   const getByStatus = useCallback((status: SubtaskStatus) => filteredSubtasks.filter((s) => s.status === status), [filteredSubtasks]);
-  const showLeadActions =
-    userRole === "lead" ||
+  const isManagerOrAdmin =
     userRole === "kadep" ||
     userRole === "kadiv" ||
     userRole === "super_admin" ||
-    currentUser?.toLowerCase() === "admin" ||
-    currentUser?.toLowerCase() === taskLead?.toLowerCase();
+    currentUser?.toLowerCase() === "admin";
+
+  const isCurrentTaskLead = !!(
+    taskLead &&
+    currentUser &&
+    taskLead.trim().toLowerCase() === currentUser.trim().toLowerCase()
+  );
+
+  // Lead hanya bisa review, revisi, dll (menggeser tiket) hanya yang dia pegang / tanggung jawabnya
+  const showLeadActions = isManagerOrAdmin || (userRole === "lead" && isCurrentTaskLead);
 
   /** Ambil nama staff efektif (currentUser > localStorage > assignee > admin) */
   const getEffectiveUser = (subtask: Subtask): string => {
@@ -491,21 +551,27 @@ export default function SubtaskKanban({
     if (!subtask) return;
     if (subtask.status === targetColumn) return;
 
-    // Aturan: Hanya Lead / Super Admin / Kadep / Kadiv yang dapat mengubah status ke 'done'
-    const isLeadOrAdmin =
-      userRole === "lead" ||
-      userRole === "kadep" ||
-      userRole === "kadiv" ||
-      userRole === "super_admin" ||
-      currentUser?.toLowerCase() === "admin" ||
-      currentUser?.toLowerCase() === taskLead?.toLowerCase();
+    const isAssigned = !!currentUser && subtask.assignees.some((a) => a.toLowerCase() === currentUser.toLowerCase());
 
-    if (targetColumn === "done" && !isLeadOrAdmin) {
-      showToast("⛔ Hanya Lead yang dapat menyetujui subtask menjadi Done.");
+    // 1. Cek hak akses menggeser tiket: hanya pelaksana (assignee), Lead penanggung jawab task ini, atau Admin
+    if (!isAssigned && !showLeadActions) {
+      showToast("⛔ Anda tidak memiliki akses untuk memindahkan subtask ini.");
       return;
     }
 
-    if (targetColumn === "done" && subtask.status !== "review" && userRole !== "super_admin" && currentUser?.toLowerCase() !== "admin") {
+    // 2. Tiket dalam status review: hanya Lead penanggung jawab task ini atau Admin yang dapat merevisi atau menyetujui
+    if (subtask.status === "review" && !showLeadActions) {
+      showToast("⛔ Hanya Lead penanggung jawab task ini atau Admin yang dapat merevisi atau menyetujui subtask di tahap Review.");
+      return;
+    }
+
+    // 3. Aturan ke 'done': Hanya Lead penanggung jawab atau Admin yang dapat menyetujui
+    if (targetColumn === "done" && !showLeadActions) {
+      showToast("⛔ Hanya Lead penanggung jawab task ini atau Admin yang dapat menyetujui subtask menjadi Done.");
+      return;
+    }
+
+    if (targetColumn === "done" && subtask.status !== "review" && !isManagerOrAdmin) {
       showToast("⛔ Subtask tidak dapat langsung diselesaikan. Subtask wajib diajukan ke Review terlebih dahulu.");
       return;
     }
@@ -528,20 +594,12 @@ export default function SubtaskKanban({
     const subtask = subtasks.find((s) => s.id === subtaskId);
     if (!subtask) return;
 
-    const isLeadOrAdmin =
-      userRole === "lead" ||
-      userRole === "kadep" ||
-      userRole === "kadiv" ||
-      userRole === "super_admin" ||
-      currentUser?.toLowerCase() === "admin" ||
-      currentUser?.toLowerCase() === taskLead?.toLowerCase();
-
-    if (newStatus === "done" && !isLeadOrAdmin) {
-      showToast("⛔ Hanya Lead yang dapat menyetujui subtask menjadi Done.");
+    if (newStatus === "done" && !showLeadActions) {
+      showToast("⛔ Hanya Lead penanggung jawab task ini atau Admin yang dapat menyetujui subtask menjadi Done.");
       return;
     }
 
-    if (newStatus === "done" && subtask.status !== "review" && userRole !== "super_admin" && currentUser?.toLowerCase() !== "admin") {
+    if (newStatus === "done" && subtask.status !== "review" && !isManagerOrAdmin) {
       showToast("⛔ Subtask tidak dapat langsung diselesaikan. Subtask wajib diajukan ke Review terlebih dahulu.");
       return;
     }
@@ -676,6 +734,7 @@ export default function SubtaskKanban({
             options={uniqueAssignees.map((name) => ({
               value: name,
               label: name,
+              icon: <UserAvatar name={name} size="xs" />,
             }))}
           />
         )}
@@ -758,6 +817,8 @@ export default function SubtaskKanban({
           currentAssignees={historySubtask?.assignees || []}
           assignmentHistory={historySubtask?.assignmentHistory}
           taskLead={taskLead}
+          currentUser={currentUser}
+          userRole={userRole}
           onClose={() => setHistorySubtask(null)}
           onReassign={handleReassignStaff}
         />

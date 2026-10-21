@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -115,19 +115,30 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
       return;
     }
 
-    // Batasi Done: Hanya Lead / Admin yang bisa menyelesaikan task
+    // Batasi: Lead hanya bisa mengubah task yang dia pimpin, dan Done hanya untuk Lead penanggung jawab / Admin
     const userRole = user?.role;
     const currentUsername = user?.username || currentUser;
-    const isLeadOrAdmin =
-      userRole === "lead" ||
+    const isManagerOrAdmin =
+      userRole === "super_admin" ||
       userRole === "kadep" ||
       userRole === "kadiv" ||
-      userRole === "super_admin" ||
-      currentUsername?.toLowerCase() === "admin" ||
-      (currentUsername && task.lead?.toLowerCase() === currentUsername?.toLowerCase());
+      currentUsername?.toLowerCase() === "admin";
 
-    if (newStatus === "done" && !isLeadOrAdmin) {
-      showToast("⛔ Hanya Lead / Admin yang dapat menyelesaikan task");
+    const isCurrentTaskLead = !!(
+      task.lead &&
+      ((currentUsername && task.lead.toLowerCase() === currentUsername.toLowerCase()) ||
+       (user?.name && task.lead.toLowerCase() === user.name.toLowerCase()))
+    );
+
+    const isAuthorizedLeadOrAdmin = isManagerOrAdmin || (userRole === "lead" && isCurrentTaskLead);
+
+    if (userRole === "lead" && !isCurrentTaskLead && !isManagerOrAdmin) {
+      showToast("⛔ Anda hanya dapat menggeser/mengubah tiket task yang Anda pimpin.");
+      return;
+    }
+
+    if (newStatus === "done" && !isAuthorizedLeadOrAdmin) {
+      showToast("⛔ Hanya Lead penanggung jawab task ini atau Admin yang dapat menyelesaikan task.");
       return;
     }
 
@@ -225,10 +236,46 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
     const newStatus = over.id as TaskStatus;
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
+    const userRole = user?.role;
+    const currentUsername = user?.username || currentUser;
+
+    const isManagerOrAdmin =
+      userRole === "super_admin" ||
+      userRole === "kadep" ||
+      userRole === "kadiv" ||
+      currentUsername?.toLowerCase() === "admin";
+
+    const isCurrentTaskLead = !!(
+      task.lead &&
+      ((currentUsername && task.lead.toLowerCase() === currentUsername.toLowerCase()) ||
+       (user?.name && task.lead.toLowerCase() === user.name.toLowerCase()))
+    );
+
+    const isAuthorizedLeadOrAdmin = isManagerOrAdmin || (userRole === "lead" && isCurrentTaskLead);
+
+    // Lead hanya bisa menggeser tiket task yang dia pegang
+    if (userRole === "lead" && !isCurrentTaskLead && !isManagerOrAdmin) {
+      showToast("⛔ Anda hanya dapat menggeser/mengubah tiket task yang Anda pimpin.");
+      return;
+    }
+
+    if (newStatus === "done" && !isAuthorizedLeadOrAdmin) {
+      showToast("⛔ Hanya Lead penanggung jawab task ini atau Admin yang dapat menyelesaikan task.");
+      return;
+    }
 
     if (!canTransition(task.status, newStatus)) {
       showToast("⛔ Perpindahan status tidak diizinkan");
       return;
+    }
+
+    if (newStatus === "done") {
+      const allSubtasksDone = task.subtasks.every((s) => s.status === "done");
+      if (!allSubtasksDone) {
+        const pending = task.subtasks.filter((s) => s.status !== "done").length;
+        showToast(`⛔ Tidak bisa Done — ${pending} subtask belum selesai`);
+        return;
+      }
     }
 
     // Evidence hanya untuk backward moves
@@ -248,37 +295,50 @@ export default function KanbanBoard({ projectId, currentUser }: KanbanBoardProps
     setOverColumn(null);
   };
 
-  // Apply filters to tasks
-  const filteredTasks = tasks.filter((task) => {
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      const matchTitle = task.title.toLowerCase().includes(q);
-      const matchTicket = task.ticketId.toLowerCase().includes(q);
-      const matchAssignee = task.subtasks.some((s) =>
-        s.assignees.some((a) => a.toLowerCase().includes(q))
-      );
-      const matchPic = task.picName.toLowerCase().includes(q);
-      if (!matchTitle && !matchTicket && !matchAssignee && !matchPic) return false;
-    }
-    if (filters.priority !== "all" && task.priority !== filters.priority) {
-      return false;
-    }
-    if (filters.assignee && !task.subtasks.some((s) =>
-      s.assignees.includes(filters.assignee)
-    )) {
-      return false;
-    }
-    return true;
-  });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
 
   // Extract unique assignees from subtask_assignees (NOT task.picName)
-  const uniqueAssignees = Array.from(
-    new Set(tasks.flatMap((t) => t.subtasks.flatMap((s) => s.assignees)))
-  ).sort();
+  const uniqueAssignees = useMemo(() => {
+    return Array.from(
+      new Set(tasks.flatMap((t) => t.subtasks.flatMap((s) => s.assignees)))
+    ).sort();
+  }, [tasks]);
+
+  // Apply filters to tasks with memoization & debounce
+  const filteredTasks = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return tasks.filter((task) => {
+      if (q) {
+        const matchTitle = task.title.toLowerCase().includes(q);
+        const matchTicket = task.ticketId.toLowerCase().includes(q);
+        const matchAssignee = task.subtasks.some((s) =>
+          s.assignees.some((a) => a.toLowerCase().includes(q))
+        );
+        const matchPic = task.picName.toLowerCase().includes(q);
+        if (!matchTitle && !matchTicket && !matchAssignee && !matchPic) return false;
+      }
+      if (filters.priority !== "all" && task.priority !== filters.priority) {
+        return false;
+      }
+      if (filters.assignee && !task.subtasks.some((s) =>
+        s.assignees.includes(filters.assignee)
+      )) {
+        return false;
+      }
+      return true;
+    });
+  }, [tasks, debouncedSearch, filters.priority, filters.assignee]);
 
   const getTasksByStatus = useCallback(
     (status: TaskStatus) =>
-      filteredTasks.filter((t) => t.status === status),
+      filteredTasks.filter((t: Task) => t.status === status),
     [filteredTasks]
   );
 

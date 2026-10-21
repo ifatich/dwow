@@ -1,6 +1,7 @@
 "use client";
 
 import { Subtask, StaffTimeContribution } from "@/lib/types";
+import UserAvatar from "@/components/shared/user-avatar";
 
 interface StaffTimeSummaryProps {
   subtask: Subtask;
@@ -20,10 +21,6 @@ export const STAFF_COLORS: Record<string, string> = {
 
 function getStaffColor(name: string): string {
   return STAFF_COLORS[name] || "#6b7280";
-}
-
-function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
 }
 
 function formatHours(hours: number): string {
@@ -49,15 +46,7 @@ function BarRow({
   return (
     <div className="flex items-center gap-xs">
       {/* Avatar */}
-      <div
-        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: color }}
-        title={name}
-      >
-        <span className="text-[8px] font-[540] text-white leading-none">
-          {getInitials(name)}
-        </span>
-      </div>
+      <UserAvatar name={name} size="xs" />
 
       {/* Name & bar */}
       <div className="flex-1 min-w-0">
@@ -156,18 +145,15 @@ export default function StaffTimeSummary({ subtask }: StaffTimeSummaryProps) {
       {timeContributions.length === 0 && (
         <div className="flex items-center gap-xs py-xs">
           {/* Show assigned staff avatars without time */}
-          <div className="flex -space-x-xxs">
+          <div className="flex -space-x-1">
             {assignees.map((name) => (
-              <div
+              <UserAvatar
                 key={name}
-                className="w-5 h-5 rounded-full flex items-center justify-center border-2 border-canvas"
-                style={{ backgroundColor: getStaffColor(name) }}
+                name={name}
+                size="xs"
+                className="border-2 border-canvas"
                 title={name}
-              >
-                <span className="text-[7px] font-[540] text-white leading-none">
-                  {getInitials(name)}
-                </span>
-              </div>
+              />
             ))}
           </div>
           <span className="text-[11px] font-[320] text-ink/35 italic">

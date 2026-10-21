@@ -15,6 +15,7 @@ export interface StaffMetric {
   name: string;
   username: string;
   role: "staff" | "lead" | "kadep" | "kadiv" | "super_admin" | string;
+  avatar?: string | null;
   department: string;
   capacity: number;
   workload: number;
@@ -53,6 +54,7 @@ export interface ExecutiveProjectItem {
   name: string;
   description: string;
   lead: string;
+  leadAvatar?: string | null;
   sprint: string;
   statusCategory: "in_progress" | "completed" | "planned";
   totalTasks: number;

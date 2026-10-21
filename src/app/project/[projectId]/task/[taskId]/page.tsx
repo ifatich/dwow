@@ -9,6 +9,7 @@ import DeadlineNotification from "@/components/shared/deadline-notification";
 import ConsolidatedActivityFeed from "@/features/task/components/consolidated-activity-feed";
 import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import BreadcrumbBar from "@/components/shared/breadcrumb-bar";
+import UserAvatar from "@/components/shared/user-avatar";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { TaskDetailSkeleton } from "@/components/shared/skeletons";
 
@@ -47,13 +48,17 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
 
   useEffect(() => {
     fetch(`/api/tasks/${taskId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then((data) => {
-        if (data.id) {
+        if (data && data.id) {
           setTask(data);
           setSubtasks(data.subtasks || []);
         }
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [taskId]);
 
@@ -118,9 +123,17 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
             <h1 className="text-[26px] font-[540] leading-[1.35] tracking-[-0.26px] text-ink">
               {task.title}
             </h1>
-            <div className="flex items-center gap-md mt-sm text-[14px] text-ink/50">
-              <span>PIC: <strong className="text-ink/70 capitalize">{task.picName}</strong></span>
-              <span>Lead: <strong className="text-ink/70 capitalize">{task.lead}</strong></span>
+            <div className="flex items-center gap-md mt-sm text-[14px] text-ink/50 flex-wrap">
+              <span className="inline-flex items-center gap-1.5">
+                <span>PIC:</span>
+                <UserAvatar name={task.picName} size="xs" />
+                <strong className="text-ink/70 capitalize">{task.picName}</strong>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span>Lead:</span>
+                <UserAvatar name={task.lead} size="xs" />
+                <strong className="text-ink/70 capitalize">{task.lead}</strong>
+              </span>
               <span>Deadline: <strong className="text-ink/70">{formatDate(task.deadline)}</strong></span>
             </div>
 

@@ -6,6 +6,8 @@ import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
 import BreadcrumbBar from "@/components/shared/breadcrumb-bar";
 import { ActivityHistorySkeleton } from "@/components/shared/skeletons";
 import GlobalFilterToolbar from "@/components/shared/global-filter-toolbar";
+import UserAvatar from "@/components/shared/user-avatar";
+import { cleanLogNote } from "@/lib/clean-log-note";
 
 type FilterAction = "all" | ActivityLogEntry["action"];
 
@@ -16,6 +18,7 @@ interface ActivityLogRow {
   userId: string | null;
   staffName: string | null;
   staffNama: string | null;
+  avatar?: string | null;
   action: ActivityLogEntry["action"];
   timestamp: string;
   durationHours: number;
@@ -183,7 +186,10 @@ export default function ActivityHistoryPage() {
                         <span className={`inline-flex rounded-pill px-sm py-xxs text-[10px] font-[540] ${action.color}`}>
                           {action.label}
                         </span>
-                        <span className="text-[12px] font-[450] text-ink/60">{log.staffName || "—"}</span>
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-[450] text-ink/70">
+                          <UserAvatar name={log.staffNama || log.staffName} avatar={log.avatar} size="xs" />
+                          <span>{log.staffNama || log.staffName || "—"}</span>
+                        </span>
                         <span className="text-ink/20">·</span>
                         <span className="text-[12px] font-[320] text-ink/40">{log.subtaskTitle || "—"}</span>
                         {log.sprint && (
@@ -197,8 +203,8 @@ export default function ActivityHistoryPage() {
                         Task: {log.taskTitle || "—"}
                       </p>
                       {log.note && (
-                        <p className="text-[13px] font-[320] text-ink/60 mt-xs italic">
-                          &ldquo;{log.note}&rdquo;
+                        <p className="text-[13px] font-[320] text-ink/70 mt-xs italic break-words">
+                          &ldquo;{cleanLogNote(log.note)}&rdquo;
                         </p>
                       )}
                     </div>

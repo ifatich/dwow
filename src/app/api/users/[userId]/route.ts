@@ -39,7 +39,7 @@ export async function PATCH(
   try {
     const { userId } = await params;
     const body = await request.json();
-    const { nama, role, department, capacityHoursPerMonth, password, leadIds } = body;
+    const { nama, role, department, capacityHoursPerMonth, password, leadIds, avatar } = body;
 
     const [existing] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (!existing) {
@@ -50,10 +50,20 @@ export async function PATCH(
     const updateData: any = { updatedAt: now };
 
     if (nama !== undefined) updateData.nama = nama;
+    if (avatar !== undefined) updateData.avatar = avatar;
     if (role !== undefined) updateData.role = role;
     if (department !== undefined) updateData.department = department;
     if (capacityHoursPerMonth !== undefined) updateData.capacityHoursPerMonth = capacityHoursPerMonth;
     if (password) {
+      if (typeof password !== "string" || password.length < 8) {
+        return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 });
+      }
+      if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return NextResponse.json({ error: "Password harus mengandung kombinasi huruf dan angka" }, { status: 400 });
+      }
+      if (password.toLowerCase() === existing.username.toLowerCase()) {
+        return NextResponse.json({ error: "Password tidak boleh sama dengan username" }, { status: 400 });
+      }
       updateData.passwordHash = await bcrypt.hash(password, 10);
     }
 

@@ -15,18 +15,18 @@ export async function GET() {
     const allUsers = await db.select().from(users).orderBy(users.nama);
     
     // Ambil semua relasi lead-staff
-    const assignments = await rawQuery<{ staff_id: string; lead_id: string; lead_nama: string; lead_username: string }>(`
-      SELECT lsa.staff_id, u.id as lead_id, u.nama as lead_nama, u.username as lead_username
+    const assignments = await rawQuery<{ staff_id: string; lead_id: string; lead_nama: string; lead_username: string; lead_avatar: string | null }>(`
+      SELECT lsa.staff_id, u.id as lead_id, u.nama as lead_nama, u.username as lead_username, u.avatar as lead_avatar
       FROM lead_staff_assignments lsa
       JOIN users u ON lsa.lead_id = u.id
     `);
 
-    const leadsByStaffId = new Map<string, Array<{ id: string; nama: string; username: string }>>();
+    const leadsByStaffId = new Map<string, Array<{ id: string; nama: string; username: string; avatar: string | null }>>();
     for (const a of assignments) {
       if (!leadsByStaffId.has(a.staff_id)) {
         leadsByStaffId.set(a.staff_id, []);
       }
-      leadsByStaffId.get(a.staff_id)!.push({ id: a.lead_id, nama: a.lead_nama, username: a.lead_username });
+      leadsByStaffId.get(a.staff_id)!.push({ id: a.lead_id, nama: a.lead_nama, username: a.lead_username, avatar: a.lead_avatar });
     }
 
     // Jangan return password_hash, sertakan assignedLeads

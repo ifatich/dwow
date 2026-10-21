@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from "react";
 import KanbanBoard from "@/features/kanban/components/kanban-board";
 import PageHeader, { HeaderAvatar } from "@/components/shared/page-header";
+import DeadlineNotification from "@/components/shared/deadline-notification";
 import BreadcrumbBar from "@/components/shared/breadcrumb-bar";
 import MetadataSection from "@/features/task/components/metadata-section";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
@@ -20,9 +21,12 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then((data) => {
-        if (data.id || data.title) {
+        if (data && (data.id || data.title)) {
           setProject(data);
         }
       })
@@ -34,6 +38,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   return (
     <div className="flex flex-col flex-1">
       <PageHeader>
+        <DeadlineNotification />
         <HeaderAvatar />
       </PageHeader>
 

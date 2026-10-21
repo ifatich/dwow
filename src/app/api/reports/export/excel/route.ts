@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const sprints = await sprintsRes.json();
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "TaskFlow Pro";
+    workbook.creator = "D-WoW Platform";
 
     // Sheet 1: Ringkasan
     const ws1 = workbook.addWorksheet("Ringkasan");

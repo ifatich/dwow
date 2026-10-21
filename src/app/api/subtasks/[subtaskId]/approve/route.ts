@@ -42,7 +42,7 @@ export async function POST(
     return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
   }
 
-  if (task.leadId !== userId && userRole !== "super_admin") {
+  if (task.leadId !== userId && !["super_admin", "kadep", "kadiv"].includes(userRole)) {
     return NextResponse.json({ error: "Hanya Lead task ini yang dapat menyetujui" }, { status: 403 });
   }
 

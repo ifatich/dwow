@@ -49,6 +49,14 @@ export default function GlobalFilterToolbar({
   const [internalSprintsList, setInternalSprintsList] = useState<string[]>([]);
   const sprintsList = propSprintsList && propSprintsList.length > 0 ? propSprintsList : internalSprintsList;
   const [userSearch, setUserSearch] = useState("");
+  const [debouncedUserSearch, setDebouncedUserSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUserSearch(userSearch);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [userSearch]);
 
   const [isOpenUser, setIsOpenUser] = useState(false);
   const [isOpenSprint, setIsOpenSprint] = useState(false);
@@ -187,12 +195,12 @@ export default function GlobalFilterToolbar({
   const sprintDisplayLabel = sprintValue === "all" ? "Semua Sprint (Awal Tahun)" : sprintValue;
 
   const filteredUsersList = useMemo(() => {
-    if (!userSearch.trim()) return usersList;
-    const q = userSearch.toLowerCase();
+    if (!debouncedUserSearch.trim()) return usersList;
+    const q = debouncedUserSearch.toLowerCase();
     return usersList.filter(
       (u) => u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)
     );
-  }, [usersList, userSearch]);
+  }, [usersList, debouncedUserSearch]);
 
   return (
     <Collapsible open={isMainOpen} onOpenChange={setIsMainOpen} className="bg-canvas border border-hairline rounded-lg p-md mb-lg shadow-xs transition-all">

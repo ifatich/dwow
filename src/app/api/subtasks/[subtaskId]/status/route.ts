@@ -126,7 +126,7 @@ export const PATCH = withErrorHandler(async (
 
   // Cari parent task
   const [parentRow] = await db
-    .select({ id: tasks.id, title: tasks.title })
+    .select({ id: tasks.id, title: tasks.title, leadId: tasks.leadId })
     .from(subtasks)
     .innerJoin(tasks, eq(subtasks.taskId, tasks.id))
     .where(eq(subtasks.id, subtaskId))
@@ -148,29 +148,57 @@ export const PATCH = withErrorHandler(async (
   }
 
   const normalizedStaff = staffName.toLowerCase();
+  const currentUserId = (session?.user as any)?.id;
   const isAssignee = targetSubtask.assignees.some(
     (a) => a.toLowerCase() === normalizedStaff
   );
 
-  const isLeadOrAdmin =
-    currentUserRole === "lead" ||
+  const isManagerOrAdmin =
     currentUserRole === "kadep" ||
     currentUserRole === "kadiv" ||
     currentUserRole === "super_admin" ||
     normalizedStaff === "admin";
 
-  // Assignee, Lead/Admin, atau subtask tanpa assignee diperbolehkan mengubah status
-  if (!isAssignee && !isLeadOrAdmin && targetSubtask.assignees.length > 0) {
-    return forbidden(`Hanya assignee subtask (${targetSubtask.assignees.join(", ")}) atau Lead yang dapat mengubah status`);
+  let isTaskLead = false;
+  if (parentRow.leadId) {
+    if (currentUserId && currentUserId === parentRow.leadId) {
+      isTaskLead = true;
+    } else {
+      const [leadUser] = await db
+        .select({ id: users.id, username: users.username, nama: users.nama })
+        .from(users)
+        .where(eq(users.id, parentRow.leadId))
+        .limit(1);
+      if (
+        leadUser &&
+        (leadUser.username?.toLowerCase() === normalizedStaff ||
+         leadUser.nama?.toLowerCase() === normalizedStaff ||
+         (session?.user as any)?.username?.toLowerCase() === leadUser.username?.toLowerCase())
+      ) {
+        isTaskLead = true;
+      }
+    }
+  }
+
+  const isAuthorizedLeadOrAdmin = isManagerOrAdmin || (currentUserRole === "lead" && isTaskLead);
+
+  // Assignee, Authorized Lead/Admin, atau subtask tanpa assignee diperbolehkan mengubah status
+  if (!isAssignee && !isAuthorizedLeadOrAdmin && targetSubtask.assignees.length > 0) {
+    return forbidden(`Hanya assignee subtask (${targetSubtask.assignees.join(", ")}) atau Lead penanggung jawab task ini yang dapat mengubah status`);
   }
 
   const oldStatus = targetSubtask.status;
 
-  if (newStatus === "done" && !isLeadOrAdmin) {
-    return forbidden("Hanya Lead yang dapat menyetujui subtask menjadi Done.");
+  // Review -> In_progress (Revisi) atau Review -> Done (Setujui) hanya boleh dilakukan oleh Authorized Lead atau Admin
+  if (oldStatus === "review" && !isAuthorizedLeadOrAdmin) {
+    return forbidden("Hanya Lead penanggung jawab task ini atau Admin yang dapat merevisi atau menyetujui subtask di tahap Review.");
   }
 
-  if (newStatus === "done" && oldStatus !== "review" && currentUserRole !== "super_admin" && normalizedStaff !== "admin") {
+  if (newStatus === "done" && !isAuthorizedLeadOrAdmin) {
+    return forbidden("Hanya Lead penanggung jawab task ini atau Admin yang dapat menyetujui subtask menjadi Done.");
+  }
+
+  if (newStatus === "done" && oldStatus !== "review" && !isManagerOrAdmin) {
     return badRequest("Subtask tidak dapat langsung diselesaikan. Subtask wajib melalui tahap Review terlebih dahulu.");
   }
 

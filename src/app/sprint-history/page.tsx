@@ -43,17 +43,14 @@ export default function SprintHistoryPage() {
     return sprints.map((s) => s.sprint).filter(Boolean);
   }, [sprints]);
 
-  const filteredSprints = useMemo(() => {
+  // Data sprint untuk Mode Tren (semua sprint yang disaring berdasarkan user agar garis tren historis tetap utuh)
+  const trendSprints = useMemo(() => {
     let result = sprints;
-    if (selectedSprint !== "all") {
-      result = result.filter((s) => s.sprint === selectedSprint);
-    }
     if (selectedUser !== "all") {
       const userList = selectedUser.split(",").filter(Boolean).map((u) => u.toLowerCase());
       result = result
-        .map((s) => ({
-          ...s,
-          projects: s.projects.filter(
+        .map((s) => {
+          const matchingProjects = s.projects.filter(
             (p) =>
               userList.some((u) => (p.lead || "").toLowerCase().includes(u)) ||
               p.tasks.some(
@@ -61,12 +58,42 @@ export default function SprintHistoryPage() {
                   userList.some((u) => (t.picName || "").toLowerCase().includes(u)) ||
                   t.subtasks.some((st) => (st.assignees || []).some((a) => userList.some((u) => a.toLowerCase().includes(u))))
               )
-          ),
-        }))
+          );
+
+          let totalTasks = 0;
+          let doneTasks = 0;
+          let totalHours = 0;
+          for (const p of matchingProjects) {
+            totalTasks += p.totalTasks;
+            doneTasks += p.doneTasks;
+            for (const t of p.tasks) {
+              for (const st of t.subtasks) {
+                totalHours += st.workloadHours || 0;
+              }
+            }
+          }
+
+          return {
+            ...s,
+            projects: matchingProjects,
+            totalTasks,
+            doneTasks,
+            totalHours,
+          };
+        })
         .filter((s) => s.projects.length > 0);
     }
     return result;
-  }, [sprints, selectedSprint, selectedUser]);
+  }, [sprints, selectedUser]);
+
+  // Data sprint untuk Mode Detail (disaring berdasarkan user DAN sprint yang dipilih)
+  const filteredSprints = useMemo(() => {
+    let result = trendSprints;
+    if (selectedSprint !== "all") {
+      result = result.filter((s) => s.sprint === selectedSprint);
+    }
+    return result;
+  }, [trendSprints, selectedSprint]);
 
   return (
     <div className="flex flex-col flex-1">
@@ -141,7 +168,12 @@ export default function SprintHistoryPage() {
 
           {mode === "trend" ? (
             <div className="mb-xxl">
-              <SprintTrendChart />
+              <SprintTrendChart
+                sprints={trendSprints}
+                selectedSprint={selectedSprint}
+                onSelectSprint={setSelectedSprint}
+                loading={loading}
+              />
             </div>
           ) : (
             <div>

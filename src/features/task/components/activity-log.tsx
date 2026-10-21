@@ -1,7 +1,8 @@
 "use client";
 
 import { ActivityLogEntry } from "@/lib/types";
-import { STAFF_COLORS } from "./staff-time-summary";
+import UserAvatar from "@/components/shared/user-avatar";
+import { cleanLogNote } from "@/lib/clean-log-note";
 
 interface ActivityLogProps {
   entries: ActivityLogEntry[];
@@ -17,14 +18,6 @@ const ACTION_LABELS: Record<ActivityLogEntry["action"], { label: string; dotClas
   approved: { label: "Disetujui", dotClass: "bg-green-500" },
   revision_requested: { label: "Revisi", dotClass: "bg-red-500" },
 };
-
-function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getStaffColor(name: string): string {
-  return STAFF_COLORS[name] || "#6b7280";
-}
 
 function formatTimestamp(iso: string): string {
   const d = new Date(iso);
@@ -92,15 +85,7 @@ export default function ActivityLog({ entries }: ActivityLogProps) {
               />
 
               {/* Avatar */}
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-[2px]"
-                style={{ backgroundColor: getStaffColor(entry.staffName) }}
-                title={entry.staffName}
-              >
-                <span className="text-[8px] font-[540] text-white leading-none">
-                  {getInitials(entry.staffName)}
-                </span>
-              </div>
+              <UserAvatar name={entry.staffName} size="xs" className="mt-[2px]" />
 
               {/* Content */}
               <div className="flex-1 min-w-0">
@@ -125,8 +110,8 @@ export default function ActivityLog({ entries }: ActivityLogProps) {
 
                 {/* Note */}
                 {entry.note && (
-                  <div className="text-[12px] font-[320] text-ink/45 mt-xxs leading-[1.4] break-words">
-                    {entry.note}
+                  <div className="text-[12px] font-[320] text-ink/60 mt-xxs leading-[1.4] break-words">
+                    {cleanLogNote(entry.note)}
                   </div>
                 )}
               </div>

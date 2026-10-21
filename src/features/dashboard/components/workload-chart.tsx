@@ -2,19 +2,29 @@
 
 import { Task } from "@/lib/types";
 import { getStaffColor } from "@/app/individual-metrics/page";
+import UserAvatar from "@/components/shared/user-avatar";
+import SectionSettingsButton from "./section-settings-button";
 
-interface WorkloadEntry { username: string; name: string; role?: string; hours: number; capacity: number; }
+interface WorkloadEntry {
+  username: string;
+  name: string;
+  role?: string;
+  hours: number;
+  capacity: number;
+  avatar?: string | null;
+}
 type WorkloadInput = Task[] | WorkloadEntry[];
 
 interface WorkloadChartProps {
   tasks: WorkloadInput;
   currentUser?: string;
   maxCapacity?: number;
+  onOpenSettings?: () => void;
 }
 
-export default function WorkloadChart({ tasks, currentUser, maxCapacity }: WorkloadChartProps) {
+export default function WorkloadChart({ tasks, currentUser, maxCapacity, onOpenSettings }: WorkloadChartProps) {
   // Accept both Task[] and WorkloadEntry[]
-  let entries: { username: string; name: string; role?: string; hours: number; capacity: number }[];
+  let entries: { username: string; name: string; role?: string; hours: number; capacity: number; avatar?: string | null }[];
 
   if (Array.isArray(tasks) && tasks.length > 0 && "username" in tasks[0]) {
     // New format: WorkloadEntry[]
@@ -23,7 +33,7 @@ export default function WorkloadChart({ tasks, currentUser, maxCapacity }: Workl
       .filter((w) => !currentUser || w.username === currentUser)
       .map((w) => {
         const cap = w.capacity || 72;
-        return { username: w.username, name: w.name, role: w.role, hours: w.hours, capacity: cap };
+        return { username: w.username, name: w.name, role: w.role, hours: w.hours, capacity: cap, avatar: w.avatar };
       });
   } else {
     // Old format: Task[]
@@ -49,11 +59,19 @@ export default function WorkloadChart({ tasks, currentUser, maxCapacity }: Workl
 
   return (
     <div className="bg-surface-soft/60 rounded-lg border border-hairline-soft p-lg">
-      <div className="mb-lg">
-        <h3 className="text-[14px] font-[540] text-ink">Beban Kerja per Staff</h3>
-        <p className="text-[11px] font-[320] text-ink/35 mt-xxs">
-          Total {Math.round(totalHours)} jam estimasi · {entries.length} staff & lead · Kapasitas {cap}j/sprint
-        </p>
+      <div className="flex items-center justify-between mb-lg">
+        <div>
+          <h3 className="text-[14px] font-[540] text-ink">Beban Kerja per Staff</h3>
+          <p className="text-[11px] font-[320] text-ink/35 mt-xxs">
+            Total {Math.round(totalHours)} jam estimasi · {entries.length} staff & lead · Kapasitas {cap}j/sprint
+          </p>
+        </div>
+        {onOpenSettings && (
+          <SectionSettingsButton
+            onClick={onOpenSettings}
+            title="Atur Tampilan Role: Beban Kerja Tim"
+          />
+        )}
       </div>
 
       {entries.length === 0 ? (
@@ -79,9 +97,11 @@ export default function WorkloadChart({ tasks, currentUser, maxCapacity }: Workl
 
             return (
               <div key={e.username || e.name} className="flex items-center gap-sm">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color }}>
-                  <span className="text-[8px] font-[540] text-white leading-none">{e.name.slice(0, 2).toUpperCase()}</span>
-                </div>
+                <UserAvatar
+                  name={e.name}
+                  avatar={e.avatar}
+                  size="md"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-xxs">
                     <div className="flex items-center gap-xs truncate">

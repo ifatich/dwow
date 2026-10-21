@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { activityLogs, users, subtasks, tasks, projects } from "@/db/schema";
 import { desc, asc, eq } from "drizzle-orm";
+import { cleanLogNote } from "@/lib/clean-log-note";
 
 type LogAction =
   | "created" | "started" | "paused" | "resumed" | "completed"
@@ -46,7 +47,7 @@ export async function logSubtaskActivity(
       durationHours: durationSeconds ? Math.round((durationSeconds / 3600) * 10) / 10 : 0,
       durationCategory: durationCategory ?? null,
       durationSeconds: durationSeconds ?? null,
-      note: note ?? null,
+      note: note ? (cleanLogNote(note) || null) : null,
     }).run();
 
     return id;
@@ -81,7 +82,7 @@ export async function logTaskActivity(
       durationHours: 0,
       durationCategory: null,
       durationSeconds: null,
-      note: note ?? null,
+      note: note ? (cleanLogNote(note) || null) : null,
     }).run();
 
     return id;
@@ -162,6 +163,7 @@ export async function getAllActivityLogs(options?: {
       userId: activityLogs.userId,
       staffName: users.username,
       staffNama: users.nama,
+      avatar: users.avatar,
       action: activityLogs.action,
       timestamp: activityLogs.timestamp,
       durationHours: activityLogs.durationHours,

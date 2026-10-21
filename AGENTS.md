@@ -199,3 +199,22 @@ Setiap kali melakukan perubahan kode (fitur baru, perbaikan bug, atau peningkata
    - Jalankan validasi `npx tsc --noEmit`.
    - Stage file `changelog-data.ts` bersamaan dengan file yang diubah.
    - Lakukan commit dan push ke `master`.
+
+## Aturan Tambahan Proyek: Wajib Menggunakan Graphify untuk Analisis Codebase & Arsitektur
+
+Agen dan asisten pengembang **WAJIB** menggunakan `graphify` untuk memahami arsitektur, relasi antar modul, dan ketergantungan file di repositori ini:
+
+1. **Konsultasi Knowledge Graph Terlebih Dahulu:**
+   - Ketika mencari letak modul, memahami ketergantungan file, atau melacak alur data, agen **WAJIB** terlebih dahulu mengecek `graphify-out/graph.json` menggunakan CLI:
+     - `graphify query "<pertanyaan>"` untuk pemetaan konteks menyeluruh
+     - `graphify path "<Komponen A>" "<Komponen B>"` untuk menganalisis jalur relasi langsung
+     - `graphify explain "<Simbol / Komponen>"` untuk melihat relasi tetangga
+   - Hindari melakukan *blind grep* atau membaca file satu per satu secara acak jika peta relasi sudah tersedia di knowledge graph.
+
+2. **Wajib Update Graph Setelah Perubahan Kode:**
+   - Setiap kali selesai melakukan modifikasi kode, penambahan fitur, atau perbaikan bug pada file sumber (`.ts`, `.tsx`, `.js`, dll.), agen **WAJIB** menjalankan pembaruan graph secara inkremental:
+     ```bash
+     graphify update .
+     ```
+   - Perintah ini berjalan cepat secara lokal (AST-only, tanpa biaya token API) untuk memastikan file `graphify-out/graph.json`, `graphify-out/graph.html`, dan `graphify-out/GRAPH_REPORT.md` selalu mutakhir (*fresh*).
+

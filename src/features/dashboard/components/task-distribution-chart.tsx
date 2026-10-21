@@ -25,7 +25,7 @@ export default function TaskDistributionChart({ tasks }: TaskDistributionChartPr
   const donePct = total > 0 ? Math.round((counts.done / total) * 100) : 0;
 
   // Evaluation logic for overall performance
-  let performanceStatus: { label: string; badgeClass: string; textClass: string; desc: React.ReactNode; icon: string };
+  let performanceStatus: { label: string; badgeClass: string; textClass: string; desc: React.ReactNode; dotColor: string };
 
   if (total === 0) {
     performanceStatus = {
@@ -33,7 +33,7 @@ export default function TaskDistributionChart({ tasks }: TaskDistributionChartPr
       badgeClass: "bg-gray-100 text-gray-600 border-gray-200",
       textClass: "text-gray-500",
       desc: "Belum ada tugas yang tercatat dalam sistem.",
-      icon: "⚪",
+      dotColor: "bg-gray-400",
     };
   } else if (donePct > 80) {
     performanceStatus = {
@@ -41,7 +41,7 @@ export default function TaskDistributionChart({ tasks }: TaskDistributionChartPr
       badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300",
       textClass: "text-emerald-700",
       desc: `Performa sangat baik! ${donePct}% dari seluruh tugas telah selesai (Done).`,
-      icon: "🟢",
+      dotColor: "bg-emerald-500",
     };
   } else if (donePct > 60) {
     performanceStatus = {
@@ -49,7 +49,7 @@ export default function TaskDistributionChart({ tasks }: TaskDistributionChartPr
       badgeClass: "bg-amber-100 text-amber-800 border-amber-300",
       textClass: "text-amber-700",
       desc: `Tingkat penyelesaian ${donePct}%. Perlu evaluasi untuk menuntaskan sisa tugas.`,
-      icon: "🟡",
+      dotColor: "bg-amber-500",
     };
   } else {
     performanceStatus = {
@@ -61,7 +61,7 @@ export default function TaskDistributionChart({ tasks }: TaskDistributionChartPr
           <strong className="font-[700] text-red-700">Red Notice!</strong> Penyelesaian akumulatif sangat kurang. Kamu hanya menyelesaikan ({donePct}%) dari semua task dan subtask.
         </>
       ),
-      icon: "🔴",
+      dotColor: "bg-red-500",
     };
   }
 
@@ -77,9 +77,10 @@ export default function TaskDistributionChart({ tasks }: TaskDistributionChartPr
         </div>
         <div className="flex items-center gap-xs">
           <span
-            className={`font-mono text-[10px] uppercase tracking-[0.5px] border rounded-pill px-sm py-xxs font-[540] ${performanceStatus.badgeClass}`}
+            className={`font-mono text-[10px] uppercase tracking-[0.5px] border rounded-pill px-sm py-xxs font-[540] flex items-center gap-1 ${performanceStatus.badgeClass}`}
           >
-            {performanceStatus.icon} {performanceStatus.label}
+            <span className={`w-1.5 h-1.5 rounded-full ${performanceStatus.dotColor}`} />
+            <span>{performanceStatus.label}</span>
           </span>
         </div>
       </div>

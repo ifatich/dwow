@@ -30,15 +30,23 @@ export default function SortableTaskCard({
   const userRole = sessionUser?.role;
   const currentUsername = sessionUser?.username || currentUser;
   
-  const isLeadOrAdmin =
-      userRole === "lead" ||
-      userRole === "kadep" ||
-      userRole === "kadiv" ||
-      userRole === "super_admin" ||
-      currentUsername?.toLowerCase() === "admin" ||
-      (currentUsername && task.lead?.toLowerCase() === currentUsername?.toLowerCase());
+  const isManagerOrAdmin =
+    userRole === "super_admin" ||
+    userRole === "kadep" ||
+    userRole === "kadiv" ||
+    currentUsername?.toLowerCase() === "admin";
 
-  const canDrag = isLeadOrAdmin || isUserAssignee(task, currentUsername);
+  const isCurrentTaskLead = !!(
+    task.lead &&
+    ((currentUsername && task.lead.toLowerCase() === currentUsername.toLowerCase()) ||
+     (sessionUser?.name && task.lead.toLowerCase() === sessionUser.name.toLowerCase()))
+  );
+
+  const isAuthorizedLeadOrAdmin = isManagerOrAdmin || (userRole === "lead" && isCurrentTaskLead);
+
+  // Lead hanya bisa menggeser tiket yang dia pegang / tanggung jawabnya.
+  // Staff/Assignee hanya bisa menggeser jika terlibat dalam subtask.
+  const canDrag = isAuthorizedLeadOrAdmin || (userRole !== "lead" && isUserAssignee(task, currentUsername)) || (userRole === "lead" && isUserAssignee(task, currentUsername));
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({

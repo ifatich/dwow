@@ -141,11 +141,11 @@ export async function GET(request: NextRequest) {
         for (const s of allSubtasksList) {
           if (sprintFilter !== "all" && s.projectSprint !== sprintFilter) continue;
 
-          const isLedProject = s.projectLeadId === u.id;
-          const isTaskLead = s.taskLeadId === u.id;
+          // Task review diberikan kepada lead pada level task, bukan project
+          const isTaskLead = s.taskLeadId ? s.taskLeadId === u.id : s.projectLeadId === u.id;
           const isManagedStaff = Boolean(s.staffId && managedStaffIds.has(s.staffId) && s.staffId !== u.id);
 
-          if (isLedProject || isTaskLead || isManagedStaff) {
+          if (isTaskLead || (isManagedStaff && !s.taskLeadId)) {
             leadSubtaskMap.set(s.id, s);
           }
         }
@@ -201,8 +201,10 @@ export async function GET(request: NextRequest) {
         performanceCategory = "Optimal";
       }
 
+      const userAvatar = allUsers.find((x) => x.username === s.username)?.avatar || null;
       return {
         ...s,
+        avatar: userAvatar,
         performanceCategory,
       };
     });
@@ -275,6 +277,7 @@ export async function GET(request: NextRequest) {
         name: p.title,
         description: p.description || "",
         lead: leadName,
+        leadAvatar: leadUser?.avatar || null,
         sprint: p.sprint || "Sprint General",
         statusCategory,
         totalTasks: totalTasksCount,

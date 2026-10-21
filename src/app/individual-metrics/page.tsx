@@ -34,6 +34,7 @@ export function getStaffColor(nameOrUsername: string): string {
 interface StaffMetric {
   name: string;
   username: string;
+  avatar?: string | null;
   role?: string;
   department?: string;
   capacity: number;
@@ -53,6 +54,7 @@ interface StaffMetric {
   weightBreakdown?: string;
 }
 
+import UserAvatar from "@/components/shared/user-avatar";
 import {
   calculateStaffPerformance,
   calculateLeadPerformance,
@@ -368,14 +370,12 @@ export default function IndividualMetricsPage() {
                       <div className="flex items-start justify-between gap-md mb-lg">
                         <div className="flex items-center gap-md">
                           {/* Avatar Circle */}
-                          <div
-                            className="w-11 h-11 rounded-full flex items-center justify-center shadow-xs flex-shrink-0 relative group-hover:scale-105 transition-transform"
-                            style={{ backgroundColor: color }}
-                          >
-                            <span className="text-[13px] font-[600] text-white tracking-[0.5px]">
-                              {initials}
-                            </span>
-                          </div>
+                          <UserAvatar
+                            name={m.name}
+                            avatar={m.avatar}
+                            size="xl"
+                            className="group-hover:scale-105 transition-transform"
+                          />
                           <div>
                             <div className="flex items-center gap-xs">
                               <h3 className="text-[16px] font-[600] text-ink capitalize">

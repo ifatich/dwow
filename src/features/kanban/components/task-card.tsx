@@ -1,6 +1,7 @@
 "use client";
 
 import { Task } from "@/lib/types";
+import UserAvatar from "@/components/shared/user-avatar";
 
 const PRIORITY_LABEL: Record<Task["priority"], string> = {
   urgent: "Urgent",
@@ -26,6 +27,11 @@ export default function TaskCard({ task, currentUser }: TaskCardProps) {
       s.assignees.some((a) => a.toLowerCase() === normalizedUser)
     )
     : false;
+
+  // Cek apakah user adalah Lead task ini dan memiliki subtask yang butuh review
+  const isLead = Boolean(task.lead && normalizedUser && task.lead.toLowerCase() === normalizedUser);
+  const reviewSubtasksCount = task.subtasks.filter((s) => s.status === "review").length;
+  const hasReviewPending = isLead && reviewSubtasksCount > 0;
 
   // Deadline calculation
   const today = new Date();
@@ -58,16 +64,27 @@ export default function TaskCard({ task, currentUser }: TaskCardProps) {
     <div
       role="button"
       tabIndex={0}
-      className={`w-full text-left rounded-lg p-lg transition-all duration-200 cursor-pointer group ${isMyTask
-        ? "bg-canvas border border-lime-500"
-        : "bg-canvas border border-hairline hover:border-ink/20 hover:shadow-sm"
-        }`}
+      className={`w-full text-left rounded-lg p-lg transition-all duration-200 cursor-pointer group ${
+        hasReviewPending
+          ? "bg-amber-50/40 border-2 border-amber-400 shadow-xs ring-1 ring-amber-300/40"
+          : isMyTask
+            ? "bg-canvas border-2 border-lime-500"
+            : "bg-canvas border border-hairline hover:border-ink/20 hover:shadow-sm"
+      }`}
     >
       {/* Ticket ID + Priority + Deadline */}
       <div className="flex items-center justify-between mb-sm gap-xs flex-wrap">
-        <span className="font-mono text-[11px] uppercase tracking-[0.6px] text-ink/50">
-          {task.ticketId}
-        </span>
+        <div className="flex items-center gap-xs flex-wrap">
+          <span className="font-mono text-[11px] uppercase tracking-[0.6px] text-ink/50">
+            {task.ticketId}
+          </span>
+          {hasReviewPending && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-[550] text-amber-900 bg-amber-200/90 border border-amber-300/80 rounded-pill px-2 py-0.5 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+              <span>{reviewSubtasksCount} Review</span>
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-xxs flex-wrap">
           <span
             className={`inline-flex items-center rounded-pill px-[10px] py-[2px] text-[11px] font-medium priority-${task.priority}`}
@@ -89,9 +106,18 @@ export default function TaskCard({ task, currentUser }: TaskCardProps) {
       </div>
 
       {/* Title */}
-      <h3 className="text-[16px] font-[450] leading-[1.4] tracking-[-0.14px] text-ink mb-md">
+      <h3 className="text-[16px] font-[450] leading-[1.4] tracking-[-0.14px] text-ink mb-sm">
         {task.title}
       </h3>
+
+      {/* Review pending notification on task card */}
+      {hasReviewPending && (
+        <div className="mb-sm">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-[520] text-amber-900 bg-amber-100/90 border border-amber-300/70 rounded-md px-2.5 py-1">
+            <span>🔍 {reviewSubtasksCount} subtask menunggu review Anda</span>
+          </span>
+        </div>
+      )}
 
       {/* Subtask progress */}
       {total > 0 && (
@@ -120,34 +146,40 @@ export default function TaskCard({ task, currentUser }: TaskCardProps) {
             task.subtasks.flatMap(s => s.assignees)
           )];
           if (taskAssignees.length === 0) {
-            return <span className="text-[13px] font-[450] text-ink/60">{task.picName}</span>;
+            return (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <UserAvatar name={task.picName} size="xs" />
+                <span className="text-[13px] font-[450] text-ink/60 truncate">{task.picName}</span>
+              </div>
+            );
           }
           return (
-            <div className="flex items-center gap-xxs">
+            <div className="flex items-center -space-x-1 flex-shrink-0">
               {taskAssignees.slice(0, 4).map((name) => {
                 const isUser = normalizedUser && name.toLowerCase() === normalizedUser;
                 return (
-                  <span
+                  <UserAvatar
                     key={name}
-                    className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[10px] font-[540] uppercase transition-all ${isUser
-                      ? "bg-lime-500 text-white font-bold"
-                      : "bg-primary/10 text-primary"
-                      }`}
+                    name={name}
+                    size="xs"
+                    className={`border-2 border-canvas transition-all ${
+                      isUser ? "ring-2 ring-emerald-500 z-10" : ""
+                    }`}
                     title={name}
-                  >
-                    {name.charAt(0)}
-                  </span>
+                  />
                 );
               })}
               {taskAssignees.length > 4 && (
-                <span className="text-[11px] text-ink/40">+{taskAssignees.length - 4}</span>
+                <span className="text-[11px] text-ink/40 pl-1.5">+{taskAssignees.length - 4}</span>
               )}
             </div>
           );
         })()}
         <span className="text-ink/25">·</span>
-        <span className="text-[13px] font-[320] text-ink/40">
-          Lead: {task.lead}
+        <span className="inline-flex items-center gap-1 text-[13px] font-[320] text-ink/60 min-w-0 truncate">
+          <span className="text-ink/40">Lead:</span>
+          <UserAvatar name={task.lead} size="2xs" />
+          <span className="truncate">{task.lead}</span>
         </span>
       </div>
     </div>

@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proposal Teknis &amp; Rekomendasi Penyempurnaan Sistem</title>
+  
+  <!-- Third-Party Diagram Engine: ApexCharts (via CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+  <style>
+    /* CSS Reset & Breathable Corporate Design System */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --corp-navy-950: #0a0f1d;
+      --corp-navy-900: #0f172a;
+      --corp-navy-800: #1e293b;
+      --corp-navy-700: #334155;
+      --corp-navy-600: #475569;
+      --corp-navy-500: #64748b;
+      --corp-navy-400: #94a3b8;
+      --corp-navy-200: #e2e8f0;
+      --corp-navy-100: #f1f5f9;
+      --corp-navy-50:  #f8fafc;
+      
+      --accent-blue:   #1e40af;
+      --accent-cobalt: #2563eb;
+      --accent-teal:   #0f766e;
+      --accent-slate:  #3b4252;
+      --accent-amber:  #b45309;
+      --accent-red:    #991b1b;
+      
+      --font-corp: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      font-family: var(--font-corp);
+      color: var(--corp-navy-900);
+      background-color: #cbd5e1;
+      line-height: 1.55;
+      font-size: 12px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Screen UI Controls (Hidden on Print) */
+    .screen-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      background: rgba(15, 23, 42, 0.98);
+      backdrop-filter: blur(12px);
+      color: #ffffff;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .toolbar-title {
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #f8fafc;
+      font-size: 13px;
+    }
+
+    .toolbar-meta-pill {
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #1d4ed8;
+      box-shadow: 0 1px 4px rgba(37,99,235,0.3);
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.08);
+      color: #e2e8f0;
+      border-color: rgba(255,255,255,0.15);
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.16);
+    }
+
+    .btn.active {
+      background: #ffffff;
+      color: #0f172a;
+      border-color: #ffffff;
+      font-weight: 700;
+    }
+
+    .view-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 0 60px;
+      gap: 32px;
+    }
+
+    /* ========================================================================== */
+    /* EXACT A4 PAGE GEOMETRY - SPACIOUS & PROPORTIONAL                           */
+    /* ========================================================================== */
+    
+    .a4-page-portrait {
+      width: 210mm;
+      height: 297mm;
+      max-height: 297mm;
+      padding: 13mm 16mm 12mm;
+      background: #ffffff;
+      box-shadow: 0 10px 40px rgba(15, 23, 42, 0.12);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .a4-page-landscape {
+      width: 297mm;
+      height: 210mm;
+      max-height: 210mm;
+      padding: 10mm 15mm 9mm;
+      background: #ffffff;
+      box-shadow: 0 10px 40px rgba(15, 23, 42, 0.12);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    /* Page Header Bar (Corporate Typography, No Header Logo, Direct Content) */
+    .corp-header-block {
+      border-bottom: 2px solid var(--corp-navy-900);
+      padding-bottom: 7px;
+      margin-bottom: 10px;
+    }
+
+    .corp-pre-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--corp-navy-500);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 3px;
+    }
+
+    .corp-title {
+      font-size: 17px;
+      font-weight: 900;
+      color: var(--corp-navy-950);
+      letter-spacing: -0.4px;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+
+    .corp-subtitle {
+      font-size: 10px;
+      color: var(--corp-navy-600);
+      font-weight: 600;
+      margin-top: 3px;
+      line-height: 1.4;
+    }
+
+    .corp-meta-strip {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 8.8px;
+      font-weight: 600;
+      color: var(--corp-navy-500);
+      margin-top: 5px;
+      padding-top: 4px;
+      border-top: 1px dotted var(--corp-navy-200);
+    }
+
+    /* Strategic Brief Box */
+    .corp-brief-box {
+      background: var(--corp-navy-50);
+      border: 1px solid var(--corp-navy-200);
+      border-left: 3.5px solid var(--corp-navy-900);
+      padding: 8px 12px;
+      border-radius: 3px;
+      margin-bottom: 10px;
+      font-size: 9.8px;
+      color: var(--corp-navy-700);
+      line-height: 1.45;
+    }
+
+    .corp-brief-box strong {
+      color: var(--corp-navy-950);
+      font-weight: 800;
+    }
+
+    /* Grids */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    /* Breathable Corporate Card */
+    .corp-card {
+      background: #ffffff;
+      border: 1px solid var(--corp-navy-200);
+      border-radius: 4px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+    }
+
+    .corp-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3.5px;
+      height: 100%;
+    }
+
+    .border-navy::before    { background: #0f172a; }
+    .border-blue::before    { background: #1e40af; }
+    .border-teal::before    { background: #0f766e; }
+    .border-slate::before   { background: #475569; }
+    .border-amber::before   { background: #b45309; }
+    .border-crimson::before { background: #991b1b; }
+    .border-indigo::before  { background: #3730a3; }
+    .border-steel::before   { background: #334155; }
+
+    .card-header-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-left: 2px;
+      margin-bottom: 2px;
+    }
+
+    .card-title {
+      font-size: 10.8px;
+      font-weight: 800;
+      color: var(--corp-navy-950);
+      letter-spacing: -0.2px;
+      line-height: 1.3;
+    }
+
+    .corp-pill {
+      font-size: 8px;
+      font-weight: 800;
+      padding: 1.5px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .pill-crimson { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .pill-amber   { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .pill-blue    { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
+    .pill-teal    { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+    .pill-navy    { background: #f1f5f9; color: #0f172a; border-color: #e2e8f0; }
+    .pill-purple  { background: #faf5ff; color: #6b21a8; border-color: #f3e8ff; }
+
+    .data-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      font-size: 9.3px;
+      line-height: 1.45;
+      padding-left: 2px;
+    }
+
+    .data-key {
+      font-size: 7.8px;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      letter-spacing: 0.3px;
+      margin-top: 1px;
+    }
+
+    .key-faktual  { background: #fee2e2; color: #991b1b; }
+    .key-akar     { background: #f1f5f9; color: #475569; }
+    .key-risiko   { background: #fef2f2; color: #b91c1c; font-weight: 800; }
+    .key-solusi   { background: #ecfdf5; color: #065f46; font-weight: 800; }
+    .key-spesifik { background: #eff6ff; color: #1e40af; font-weight: 700; }
+    .key-benefit  { background: #f0fdf4; color: #15803d; font-weight: 700; }
+
+    .data-val {
+      color: var(--corp-navy-700);
+    }
+
+    .data-val-bold {
+      color: var(--corp-navy-950);
+      font-weight: 600;
+    }
+
+    /* Corporate Impact Matrix Table (Halaman 1) */
+    .corp-table-container {
+      margin-top: 8px;
+      border: 1px solid var(--corp-navy-200);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .corp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9px;
+      text-align: left;
+    }
+
+    .corp-table th {
+      background: var(--corp-navy-900);
+      color: #ffffff;
+      padding: 5px 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 8px;
+      letter-spacing: 0.4px;
+    }
+
+    .corp-table td {
+      padding: 4.5px 8px;
+      border-bottom: 1px solid var(--corp-navy-100);
+      color: var(--corp-navy-700);
+      line-height: 1.35;
+    }
+
+    .corp-table tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    .corp-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Corporate 4 Value Pillars (Halaman 2) */
+    .corp-pillar-card {
+      border: 1px solid var(--corp-navy-200);
+      border-radius: 4px;
+      padding: 8px 10px;
+      background: var(--corp-navy-50);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+    }
+
+    .pillar-title {
+      font-size: 9.8px;
+      font-weight: 800;
+      color: var(--corp-navy-950);
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+
+    .pillar-desc {
+      font-size: 8.8px;
+      color: var(--corp-navy-600);
+      line-height: 1.4;
+    }
+
+    .pillar-tag {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--corp-navy-800);
+      background: #e2e8f0;
+      padding: 1.5px 5px;
+      border-radius: 2px;
+      align-self: flex-start;
+      margin-top: 3px;
+    }
+
+    /* Corporate Assurance Box (Halaman 2) */
+    .corp-assurance-box {
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      border-radius: 4px;
+      padding: 7px 10px;
+      margin-top: 8px;
+      font-size: 9px;
+      color: #1e3a8a;
+      line-height: 1.45;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .corp-assurance-box strong {
+      font-weight: 800;
+      color: #172554;
+    }
+
+    /* Transition Bar */
+    .corp-transition-bar {
+      border: 1px solid var(--corp-navy-200);
+      background: var(--corp-navy-50);
+      border-radius: 4px;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .corp-transition-bar p {
+      font-size: 9.2px;
+      color: var(--corp-navy-700);
+      font-weight: 600;
+    }
+
+    .corp-transition-badge {
+      font-size: 8.2px;
+      font-weight: 800;
+      background: var(--corp-navy-900);
+      color: #ffffff;
+      padding: 2.5px 8px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    /* Landscape Sheet Elements (Halaman 3) */
+    .landscape-header-bar {
+      border-bottom: 2px solid var(--corp-navy-900);
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .landscape-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--corp-navy-950);
+      letter-spacing: -0.3px;
+      text-transform: uppercase;
+      line-height: 1.25;
+    }
+
+    .landscape-subtitle {
+      font-size: 9.5px;
+      color: var(--corp-navy-600);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .landscape-disclaimer-box {
+      font-size: 8.5px;
+      color: #92400e;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      padding: 4px 10px;
+      border-radius: 3px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+
+    /* Horizontal Architecture Execution Pipeline (Halaman 3) */
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 7px;
+    }
+
+    .pipeline-card {
+      background: var(--corp-navy-50);
+      border: 1px solid var(--corp-navy-200);
+      border-radius: 4px;
+      padding: 5px 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+    }
+
+    .pipeline-badge-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pipeline-stage-tag {
+      font-size: 7.8px;
+      font-weight: 800;
+      padding: 1px 4.5px;
+      border-radius: 2px;
+      color: #ffffff;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+
+    .pipeline-gate-tag {
+      font-size: 7.5px;
+      font-weight: 700;
+      color: var(--corp-navy-700);
+      background: #e2e8f0;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+
+    .pipeline-title {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--corp-navy-900);
+    }
+
+    .pipeline-steps {
+      font-size: 7.8px;
+      color: var(--corp-navy-600);
+      line-height: 1.35;
+    }
+
+    /* Chart Container Card */
+    .chart-box-corporate {
+      background: #ffffff;
+      border: 1px solid var(--corp-navy-200);
+      border-radius: 4px;
+      padding: 6px 10px 4px;
+      margin-bottom: 7px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    #apex-timeline-chart {
+      width: 100%;
+      height: 230px;
+    }
+
+    /* Bottom Phase Breakdown Cards (Halaman 3) */
+    .phase-cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 7px;
+    }
+
+    .phase-card {
+      border: 1px solid var(--corp-navy-200);
+      border-radius: 4px;
+      padding: 6px 8px;
+      background: var(--corp-navy-50);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .phase-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1px;
+    }
+
+    .phase-pill {
+      font-size: 7.8px;
+      font-weight: 800;
+      padding: 1px 4.5px;
+      border-radius: 2px;
+      text-transform: uppercase;
+    }
+
+    .phase-duration {
+      font-size: 7.8px;
+      font-weight: 700;
+      color: #065f46;
+      background: #ecfdf5;
+      padding: 1px 4.5px;
+      border-radius: 2px;
+      border: 1px solid #d1fae5;
+    }
+
+    .phase-title {
+      font-size: 9.3px;
+      font-weight: 800;
+      color: var(--corp-navy-950);
+    }
+
+    .phase-desc {
+      font-size: 8px;
+      color: var(--corp-navy-600);
+      line-height: 1.35;
+    }
+
+    /* Corporate Document Footers */
+    .corp-footer {
+      border-top: 1px solid var(--corp-navy-200);
+      padding-top: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 8.5px;
+      color: var(--corp-navy-500);
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    /* PRINT RULES */
+    @page {
+      margin: 0;
+    }
+
+    @page portrait-sheet {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    @page landscape-sheet {
+      size: A4 landscape;
+      margin: 0;
+    }
+
+    @media print {
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .screen-toolbar {
+        display: none !important;
+      }
+
+      .view-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
+      }
+
+      .a4-page-portrait {
+        page: portrait-sheet !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        max-height: 297mm !important;
+        margin: 0 !important;
+        padding: 12mm 15mm 11mm !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: hidden !important;
+      }
+
+      .a4-page-landscape {
+        page: landscape-sheet !important;
+        width: 297mm !important;
+        height: 210mm !important;
+        max-height: 210mm !important;
+        margin: 0 !important;
+        padding: 9mm 14mm 8mm !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: hidden !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen Navigation Toolbar (Hidden on Print) -->
+  <div class="screen-toolbar no-print">
+    <div class="toolbar-left">
+      <span class="toolbar-title">Proposal Teknis &amp; Rekomendasi Arsitektur Sistem</span>
+      <span class="toolbar-meta-pill">Corporate Edition &bull; 3 Halaman A4</span>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn btn-secondary active" id="btnAll" onclick="showSheets('all')">
+        Dokumen Lengkap (3 Halaman)
+      </button>
+      <button class="btn btn-secondary" id="btnPage1" onclick="showSheets('p1')">
+        Hal 1: Temuan Lapangan (Portrait)
+      </button>
+      <button class="btn btn-secondary" id="btnPage2" onclick="showSheets('p2')">
+        Hal 2: Rekomendasi Solusi (Portrait)
+      </button>
+      <button class="btn btn-secondary" id="btnPage3" onclick="showSheets('p3')">
+        Hal 3: Diagram &amp; Timeline (Landscape)
+      </button>
+      <button class="btn btn-primary" onclick="window.print()">
+        Cetak / Simpan PDF (Cmd/Ctrl + P)
+      </button>
+    </div>
+  </div>
+
+  <div class="view-container">
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 1 (A4 PORTRAIT / TEGAK: 210mm x 297mm)                      -->
+    <!-- BAGIAN 1.0: ANALISIS TEMUAN LAPANGAN & KESENJANGAN SISTEM           -->
+    <!-- =================================================================== -->
+    <section class="a4-page-portrait" id="sheetPage1">
+      <div>
+        <!-- Corporate Direct Header (No Logo, Pure Content) -->
+        <div class="corp-header-block">
+          <div class="corp-pre-title">
+            <span>DOKUMEN USULAN PENYEMPURNAAN SISTEM &bull; BAGIAN 1.0</span>
+            <span>KLASIFIKASI: INTERNAL / PROPOSAL TEKNIS</span>
+          </div>
+          <h1 class="corp-title">Analisis Temuan Lapangan &amp; Kesenjangan Sistem (System Gaps)</h1>
+          <div class="corp-subtitle">
+            Kompilasi Evaluasi Berdasarkan Masukan Pengguna, Saran Manajemen, dan Pengujian Operasional Lingkungan Kerja
+          </div>
+          <div class="corp-meta-strip">
+            <span>Status: Usulan Pra-Pengerjaan</span>
+            <span>Target: Kesiapan Lingkungan Produksi v1.7</span>
+            <span>Metode: Audit Fungsional &amp; Code Review</span>
+            <span>Cakupan: 8 Area Kesenjangan</span>
+          </div>
+        </div>
+
+        <!-- Strategic Context Brief -->
+        <div class="corp-brief-box">
+          <strong>Ringkasan Eksekutif Temuan:</strong> Berdasarkan pengujian fungsional dan masukan operasional, teridentifikasi 8 area kesenjangan utama yang berpotensi menimbulkan hambatan kerja, degradasi performa server, dan ketidaksesuaian standar kepatuhan tata kelola jika tidak disempurnakan sebelum rilis produksi penuh.
+        </div>
+
+        <!-- 8 TEMUAN MENDALAM (GRID 2x4) -->
+        <div class="grid-2">
+          <!-- Temuan 1 -->
+          <div class="corp-card border-crimson">
+            <div class="card-header-line">
+              <span class="card-title">1.1 Keamanan Autentikasi &amp; Lingkungan Login Produksi</span>
+              <span class="corp-pill pill-crimson">Kritis</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Portal login memuat drawer shortcut demo pengujian ("Akses Demo Cepat") dan badge prototipe yang memungkinkan login instan tanpa validasi akun riil.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Bypass autentikasi, hilangnya akuntabilitas identitas sesi, dan pelanggaran standar kepatuhan IT enterprise.</span>
+            </div>
+          </div>
+
+          <!-- Temuan 2 -->
+          <div class="corp-card border-blue">
+            <div class="card-header-line">
+              <span class="card-title">1.2 Tata Kelola Master Data &amp; Delegasi Wewenang Lead</span>
+              <span class="corp-pill pill-blue">Tinggi</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Kategori proyek dan roster tim tidak memiliki portal manajemen terpusat; persetujuan subtask terkunci di tingkat project bukan pada lead task.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Bottleneck persetujuan tugas pada satu Lead proyek tunggal dan ketidakmampuan pendelegasian wewenang mandiri.</span>
+            </div>
+          </div>
+
+          <!-- Temuan 3 -->
+          <div class="corp-card border-crimson">
+            <div class="card-header-line">
+              <span class="card-title">1.3 Arsitektur Penyimpanan Avatar &amp; Reliabilitas Sesi</span>
+              <span class="corp-pill pill-crimson">Kritis</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Citra profil pengguna disimpan dalam format string Base64 langsung di dalam cookie token JWT (~320KB per panggilan HTTP).</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Pemicu error fatal HTTP 431 (Request Header Fields Too Large), halaman crash mendadak, dan beban jaringan membengkak.</span>
+            </div>
+          </div>
+
+          <!-- Temuan 4 -->
+          <div class="corp-card border-amber">
+            <div class="card-header-line">
+              <span class="card-title">1.4 Standar Kendali Mutu Kanban &amp; Formalisasi Revisi</span>
+              <span class="corp-pill pill-amber">Tinggi</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Lead tidak memiliki alur penolakan terstruktur ketika hasil subtask belum tuntas; umpan balik perbaikan lisan tidak terdokumentasi.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Umpan balik revisi hilang, staf pelaksana bingung memperbaiki tugas, dan standar kendali mutu hasil kerja menurun.</span>
+            </div>
+          </div>
+
+          <!-- Temuan 5 -->
+          <div class="corp-card border-slate">
+            <div class="card-header-line">
+              <span class="card-title">1.5 Akuntabilitas Delegasi Staf &amp; Audit Jam Kerja Tim</span>
+              <span class="corp-pill pill-navy">Sedang</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Pergantian staf pelaksana menimpa data tanpa riwayat historis; akumulasi kontribusi durasi kerja tim sulit dievaluasi secara akurat.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Disputasi tanggung jawab saat terjadi keterlambatan tugas dan ketidakakuratan evaluasi beban kerja riil per staf.</span>
+            </div>
+          </div>
+
+          <!-- Temuan 6 -->
+          <div class="corp-card border-indigo">
+            <div class="card-header-line">
+              <span class="card-title">1.6 Ergonomi Antarmuka &amp; Personalisasi Berbasis Peran</span>
+              <span class="corp-pill pill-purple">Sedang</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Seluruh tingkatan jabatan (Staff, Lead, Kadep, Kadiv, Super Admin) disajikan antarmuka metrik dashboard yang identik seragam.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Beban kognitif tinggi (information overload) bagi staf pelaksana dan inefisiensi ruang kerja digital harian.</span>
+            </div>
+          </div>
+
+          <!-- Temuan 7 -->
+          <div class="corp-card border-teal">
+            <div class="card-header-line">
+              <span class="card-title">1.7 Kesiapan Pelaporan Eksekutif &amp; Siklus Sprint</span>
+              <span class="corp-pill pill-blue">Tinggi</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Laporan kinerja belum siap ekspor untuk rapat pimpinan; ketiadaan mekanisme dialog sinkronisasi periodik antar sprint.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Penyusunan bahan rapat pimpinan manual memakan waktu berhari-hari dan rawan kesalahan rekapitulasi data.</span>
+            </div>
+          </div>
+
+          <!-- Temuan 8 -->
+          <div class="corp-card border-navy">
+            <div class="card-header-line">
+              <span class="card-title">1.8 Pemisahan Beban Super Admin &amp; Presisi Grid Antarmuka</span>
+              <span class="corp-pill pill-navy">Sedang</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-faktual">Faktual</span>
+              <span class="data-val">Super Admin dibebani antrean review operasional personal; kartu proyek di dashboard memiliki tinggi bervariasi (unequal heights).</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-risiko">Risiko</span>
+              <span class="data-val-bold">Distraksi fokus pengawasan strategis Super Admin dan tampilan antarmuka terkesan tidak simetris dan kurang terpoles.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Corporate Impact & Urgency Matrix Table -->
+        <div class="corp-table-container">
+          <table class="corp-table">
+            <thead>
+              <tr>
+                <th style="width: 26%;">Area Kesenjangan Sistem</th>
+                <th style="width: 15%;">Tingkat Urgensi</th>
+                <th style="width: 37%;">Karakteristik Dampak Lapangan</th>
+                <th style="width: 22%;">Kategori Mitigasi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1.1 Keamanan Autentikasi Login</strong></td>
+                <td><span style="color: #991b1b; font-weight: 800;">Kritis (P1)</span></td>
+                <td>Risiko bypass login via shortcut demo &amp; inkonsistensi identitas akun</td>
+                <td>Standardisasi Auth</td>
+              </tr>
+              <tr>
+                <td><strong>1.2 Tata Kelola Master Data &amp; Lead</strong></td>
+                <td><span style="color: #1e40af; font-weight: 800;">Tinggi (P2)</span></td>
+                <td>Bottleneck review subtask terkunci di tingkat project lead</td>
+                <td>Delegasi Wewenang</td>
+              </tr>
+              <tr>
+                <td><strong>1.3 Penyimpanan Avatar &amp; HTTP 431</strong></td>
+                <td><span style="color: #991b1b; font-weight: 800;">Kritis (P1)</span></td>
+                <td>Ukuran cookie ~320KB memicu error HTTP 431 &amp; crash aplikasi</td>
+                <td>Streaming Binary</td>
+              </tr>
+              <tr>
+                <td><strong>1.4 Kendali Mutu Kanban &amp; Revisi</strong></td>
+                <td><span style="color: #92400e; font-weight: 800;">Tinggi (P2)</span></td>
+                <td>Umpan balik revisi tidak tercatat &amp; ketiadaan form penolakan formal</td>
+                <td>Audit Mutu Kerja</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Corporate Transition Strip -->
+        <div class="corp-transition-bar">
+          <div>
+            <p>Rancangan pemecahan masalah dan rekomendasi teknis disajikan secara lengkap pada bagian berikutnya.</p>
+          </div>
+          <span class="corp-transition-badge">Lanjut ke Halaman 2: Rekomendasi Solusi</span>
+        </div>
+      </div>
+
+      <!-- Corporate Footer 1 -->
+      <div class="corp-footer">
+        <span>Dokumen Usulan Teknis &amp; Rekomendasi Arsitektur &bull; Bagian 1.0</span>
+        <span>Klasifikasi: Internal / Proposal Teknis</span>
+        <span>Halaman 1 dari 3 (Format Tegak)</span>
+      </div>
+    </section>
+
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 2 (A4 PORTRAIT / TEGAK: 210mm x 297mm)                      -->
+    <!-- BAGIAN 2.0: REKOMENDASI SOLUSI FUNGSIONAL & ARSITEKTUR TEKNIS       -->
+    <!-- =================================================================== -->
+    <section class="a4-page-portrait" id="sheetPage2">
+      <div>
+        <!-- Corporate Direct Header (No Logo, Pure Content) -->
+        <div class="corp-header-block">
+          <div class="corp-pre-title">
+            <span>DOKUMEN USULAN PENYEMPURNAAN SISTEM &bull; BAGIAN 2.0</span>
+            <span>STANDAR: ENTERPRISE PRODUCTION-GRADE</span>
+          </div>
+          <h1 class="corp-title">Rekomendasi Solusi Fungsional &amp; Arsitektur Teknis</h1>
+          <div class="corp-subtitle">
+            Rancangan Solusi Menyeluruh untuk Menjawab 8 Kesenjangan Lapangan Menuju Lingkungan Produksi Berkelanjutan
+          </div>
+          <div class="corp-meta-strip">
+            <span>Prinsip: Decoupled &amp; Clean Architecture</span>
+            <span>Standar: Zero-Regression Assurance</span>
+            <span>Validasi Tipe: Strict TypeScript (0 Error)</span>
+            <span>Target: Produksi v1.7</span>
+          </div>
+        </div>
+
+        <!-- Strategic Direction Brief -->
+        <div class="corp-brief-box">
+          <strong>Arah Strategis Solusi:</strong> Pendekatan perancangan berfokus pada modularitas tinggi, minim friksi (*low-friction*), kepastian audit (*audit-ready*), serta optimasi alokasi beban kerja. Setiap modul dirancang untuk saling melengkapi tanpa menciptakan dependensi sirkular, menjamin sistem siap digunakan oleh seluruh tingkatan peran organisasi secara profesional.
+        </div>
+
+        <!-- 8 SOLUSI MENDALAM (GRID 2x4) -->
+        <div class="grid-2">
+          <!-- Solusi 1 -->
+          <div class="corp-card border-blue">
+            <div class="card-header-line">
+              <span class="card-title">2.1 Standardisasi Autentikasi Produksi &amp; Isolasi Kredensial</span>
+              <span class="corp-pill pill-blue">Solusi Auth</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Isolasi total rute login mandiri dengan form kredensial aman dan sterilisasi seluruh drawer demo pengujian.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">Toggle visibilitas password (show/hide), validasi kredensial langsung ke DB pengguna, dan proteksi middleware auth.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">Akses login 100% siap produksi, terlindung dari akses bypass, dan identitas pengguna tercatat secara akuntabel.</span>
+            </div>
+          </div>
+
+          <!-- Solusi 2 -->
+          <div class="corp-card border-indigo">
+            <div class="card-header-line">
+              <span class="card-title">2.2 Modul Master Data Terpusat &amp; Granularitas Task Lead</span>
+              <span class="corp-pill pill-purple">Tata Kelola</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Portal manajemen Master Data terpadu (/master-data) khusus Super Admin dan kolom relasi lead_user_id per task.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">CRUD Master Kategori dan Roster Tim terpusat, penunjukan Task Lead inline, dan kueri delegasi hak review otomatis.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">Eliminasi bottleneck pada Project Lead tunggal, serta desentralisasi persetujuan tugas secara tepat sasaran.</span>
+            </div>
+          </div>
+
+          <!-- Solusi 3 -->
+          <div class="corp-card border-crimson">
+            <div class="card-header-line">
+              <span class="card-title">2.3 Dedicated Binary Avatar Streaming &amp; Header Sanitization</span>
+              <span class="corp-pill pill-crimson">Performa</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Endpoint biner berkinerja tinggi /api/users/:id/avatar dengan dukungan response streaming dan HTTP Caching.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">Pemisahan data avatar dari token JWT, sanitasi cookie sesi (&lt;1KB), dan browser caching gambar otomatis.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">100% bebas dari risiko crash HTTP 431, penghematan konsumsi bandwidth server, dan percepatan render halaman.</span>
+            </div>
+          </div>
+
+          <!-- Solusi 4 -->
+          <div class="corp-card border-amber">
+            <div class="card-header-line">
+              <span class="card-title">2.4 Siklus 4-Tahap Kanban Review &amp; Formalisasi Catatan Revisi</span>
+              <span class="corp-pill pill-amber">Kendali Mutu</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Perluasan alur status Kanban: Todo -> Progress -> Review -> Approved / Revision dengan modal catatan revisi.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">Dialog formulir catatan revisi wajib bagi Lead saat menolak subtask, rekam jejak feedback historis, dan timestamp evaluasi.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">Umpan balik perbaikan terdokumentasi resmi, staf pelaksana memiliki acuan tertulis objektif, dan kendali mutu terjamin.</span>
+            </div>
+          </div>
+
+          <!-- Solusi 5 -->
+          <div class="corp-card border-slate">
+            <div class="card-header-line">
+              <span class="card-title">2.5 Sistem Audit Trail Penugasan &amp; Agregasi Kontribusi Jam Tim</span>
+              <span class="corp-pill pill-navy">Akuntabilitas</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Dialog Assignment History kronologis serta widget ringkasan akumulasi jam kerja anggota tim pada papan task.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">Tabel relasional pencatat histori re-assignment, alasan pergantian pelaksana, dan agregasi durasi jam kerja per staf.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">Transparansi akuntabilitas kerja 100%, eliminasi lempar tanggung jawab, dan akurasi evaluasi utilisasi tim.</span>
+            </div>
+          </div>
+
+          <!-- Solusi 6 -->
+          <div class="corp-card border-indigo">
+            <div class="card-header-line">
+              <span class="card-title">2.6 Modular Dashboard Berbasis Peran dengan Persistensi</span>
+              <span class="corp-pill pill-purple">Ergonomi</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Modal pengaturan visibilitas section dashboard berbasis peran (Staff s/d Admin) dengan penyimpanan preferensi lokal.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">Toggle on/off kartu metrik, placeholder minimalis saat modul disembunyikan, dan simpan preferensi otomatis per browser.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">Bebas dari beban information overload, fokus eksekusi staf meningkat, dan manajer leluasa mengatur pandangan makro.</span>
+            </div>
+          </div>
+
+          <!-- Solusi 7 -->
+          <div class="corp-card border-teal">
+            <div class="card-header-line">
+              <span class="card-title">2.7 Executive Reporting Suite &amp; One-Click Sprint Sync</span>
+              <span class="corp-pill pill-teal">Pelaporan</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Suite pelaporan eksekutif ekspor PDF &amp; Excel ber-kop formal perusahaan serta dialog sinkronisasi sprint instan.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">Ekspor 1-klik format PDF lanskap siap cetak, tabel Excel berformula resmi, dan dialog manual trigger sync sprint.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">Penyediaan bahan rapat evaluasi pimpinan dipercepat dari berhari-hari menjadi hitungan detik tanpa rekap manual.</span>
+            </div>
+          </div>
+
+          <!-- Solusi 8 -->
+          <div class="corp-card border-navy">
+            <div class="card-header-line">
+              <span class="card-title">2.8 Decoupling Antrean Admin &amp; Standardisasi Presisi Grid</span>
+              <span class="corp-pill pill-navy">Desain &amp; Kelola</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-solusi">Solusi</span>
+              <span class="data-val-bold">Super Admin didecouple dari antrean tiket personal, kartu proyek equal-height presisi, dan What's New collapsible.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-spesifik">Teknis</span>
+              <span class="data-val">Kueri review difilter khusus Lead lini, struktur layout CSS Grid setara simetris, dan section collapsible hemat ruang vertikal.</span>
+            </div>
+            <div class="data-row">
+              <span class="data-key key-benefit">Manfaat</span>
+              <span class="data-val">Super Admin fokus penuh pada tata kelola makro dan estetika antarmuka simetris rapi berstandar desain enterprise.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 PILAR NILAI TAMBAH KORPORAT -->
+        <div class="grid-4" style="margin-top: 8px;">
+          <div class="corp-pillar-card">
+            <span class="pillar-title">Keandalan Sistem</span>
+            <span class="pillar-desc">Nol risiko crash HTTP 431, header cookie &lt;1KB, akses gambar biner instan dengan HTTP caching server.</span>
+            <span class="pillar-tag">99.9% Bebas Masalah</span>
+          </div>
+          <div class="corp-pillar-card">
+            <span class="pillar-title">Akuntabilitas Penuh</span>
+            <span class="pillar-desc">Wewenang review terdelegasi tegas ke Task Lead, formulir revisi berjejak jelas, riwayat alokasi staf transparan.</span>
+            <span class="pillar-tag">100% Jejak Terdata</span>
+          </div>
+          <div class="corp-pillar-card">
+            <span class="pillar-title">Standar Produksi</span>
+            <span class="pillar-desc">Login aman tanpa tombol demo prototipe, proteksi kredensial kuat, tata letak kartu grid sejajar simetris rapi.</span>
+            <span class="pillar-tag">Kesiapan Rilis 100%</span>
+          </div>
+          <div class="corp-pillar-card">
+            <span class="pillar-title">Keputusan Cepat</span>
+            <span class="pillar-desc">Dashboard terfokus per role jabatan, laporan analitik PDF &amp; Excel eksekutif siap saji untuk rapat evaluasi.</span>
+            <span class="pillar-tag">Ekspor 1-Klik Instan</span>
+          </div>
+        </div>
+
+        <!-- Architectural Assurance Statement -->
+        <div class="corp-assurance-box">
+          <div>
+            <strong>Jaminan Kualitas Arsitektur:</strong> Seluruh modul telah divalidasi melalui <em>Double Typecheck Gate</em> (TypeScript <code>npx tsc --noEmit</code> menghasilkan 0 error) dan dirancang untuk menjaga integritas data tanpa konflik.
+          </div>
+        </div>
+
+        <!-- Corporate Transition Strip -->
+        <div class="corp-transition-bar">
+          <div>
+            <p>Diagram alur eksekusi sistem dan estimasi jadwal pengerjaan disajikan pada halaman berikutnya.</p>
+          </div>
+          <span class="corp-transition-badge">Lanjut ke Halaman 3: Diagram &amp; Timeline Melintang</span>
+        </div>
+      </div>
+
+      <!-- Corporate Footer 2 -->
+      <div class="corp-footer">
+        <span>Dokumen Usulan Teknis &amp; Rekomendasi Arsitektur &bull; Bagian 2.0</span>
+        <span>Klasifikasi: Internal / Proposal Teknis</span>
+        <span>Halaman 2 dari 3 (Format Tegak)</span>
+      </div>
+    </section>
+
+
+    <!-- =================================================================== -->
+    <!-- HALAMAN 3 (A4 LANDSCAPE / MELINTANG: 297mm x 210mm)                 -->
+    <!-- BAGIAN 3.0: DIAGRAM ALUR EKSEKUSI & ROADMAP TIMELINE PROYEK         -->
+    <!-- =================================================================== -->
+    <section class="a4-page-landscape" id="sheetPage3">
+      <div>
+        <!-- Landscape Direct Header (No Logo, Pure Content) -->
+        <div class="landscape-header-bar">
+          <div>
+            <div class="corp-pre-title">
+              <span>DOKUMEN USULAN PENYEMPURNAAN SISTEM &bull; BAGIAN 3.0</span>
+              <span>FORMAT: MELINTANG PENUH (A4 LANDSCAPE)</span>
+            </div>
+            <h2 class="landscape-title">Diagram Alur Eksekusi &amp; Roadmap Estimasi Timeline Proyek</h2>
+            <div class="landscape-subtitle">
+              Visualisasi Arsitektur Alur Kerja, Ketergantungan Modul &amp; Alokasi Durasi &bull; Total Estimasi: 4 Fase / 8 Hari Kerja (64 Jam)
+            </div>
+          </div>
+          <div class="landscape-disclaimer-box">
+            Catatan: Jadwal dan durasi di bawah ini merupakan perkiraan (estimasi awal tentatif)
+          </div>
+        </div>
+
+        <!-- 1. Pipeline Alur Pengerjaan Sistem (Horizontal Architecture Workflow) -->
+        <div class="pipeline-grid">
+          <div class="pipeline-card" style="border-left: 3px solid #1e40af;">
+            <div class="pipeline-badge-line">
+              <span class="pipeline-stage-tag" style="background: #1e40af;">Fase 1</span>
+              <span class="pipeline-gate-tag">Gate: DB &amp; API Valid</span>
+            </div>
+            <span class="pipeline-title">Pondasi Data &amp; Keamanan Akses</span>
+            <span class="pipeline-steps">
+              Skema DB lead_user_id &rarr; REST API Master Data &rarr; Portal /master-data &rarr; Sterilisasi Login Produksi
+            </span>
+          </div>
+
+          <div class="pipeline-card" style="border-left: 3px solid #3730a3;">
+            <div class="pipeline-badge-line">
+              <span class="pipeline-stage-tag" style="background: #3730a3;">Fase 2</span>
+              <span class="pipeline-gate-tag">Gate: Zero HTTP 431</span>
+            </div>
+            <span class="pipeline-title">Optimalisasi Streaming &amp; Kanban</span>
+            <span class="pipeline-steps">
+              Binary Stream Avatar &rarr; Pemangkasan Cookie JWT &rarr; Siklus Review Subtask &rarr; Histori Delegasi Staf
+            </span>
+          </div>
+
+          <div class="pipeline-card" style="border-left: 3px solid #065f46;">
+            <div class="pipeline-badge-line">
+              <span class="pipeline-stage-tag" style="background: #065f46;">Fase 3</span>
+              <span class="pipeline-gate-tag">Gate: Laporan Terverifikasi</span>
+            </div>
+            <span class="pipeline-title">Suite Pelaporan &amp; Personalisasi</span>
+            <span class="pipeline-steps">
+              Visibilitas Modular Role Dashboard &rarr; Executive Reporting PDF/Excel &rarr; Dialog Sinkronisasi Sprint
+            </span>
+          </div>
+
+          <div class="pipeline-card" style="border-left: 3px solid #92400e;">
+            <div class="pipeline-badge-line">
+              <span class="pipeline-stage-tag" style="background: #92400e;">Fase 4</span>
+              <span class="pipeline-gate-tag">Gate: Validasi Typecheck 0 Err</span>
+            </div>
+            <span class="pipeline-title">Decoupling Tata Kelola &amp; Rilis</span>
+            <span class="pipeline-steps">
+              Decouple Antrean Admin &rarr; Equal-Height Cards Grid &rarr; Collapsible What's New &rarr; Audit Kelayakan Rilis
+            </span>
+          </div>
+        </div>
+
+        <!-- 2. Third-Party Playful Diagram Canvas (ApexCharts Horizontal RangeBar - Corporate Palette) -->
+        <div class="chart-box-corporate">
+          <div id="apex-timeline-chart"></div>
+        </div>
+
+        <!-- 3. Rincian Detail 4 Fase Pengerjaan (Bottom Cards Grid) -->
+        <div class="phase-cards-grid">
+          <div class="phase-card" style="border-left: 3px solid #1e40af;">
+            <div class="phase-card-top">
+              <span class="phase-pill" style="background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe;">Fase 1</span>
+              <span class="phase-duration">2 Hari (16 Jam)</span>
+            </div>
+            <span class="phase-title">Pondasi Data &amp; Login Steril</span>
+            <span class="phase-desc">
+              <strong>Hari 1 (8 Jam):</strong> Desain skema DB lead_user_id &amp; REST API master categories/teams.<br>
+              <strong>Hari 2 (8 Jam):</strong> UI /master-data &amp; sterilisasi login form mandiri tanpa drawer demo.
+            </span>
+          </div>
+
+          <div class="phase-card" style="border-left: 3px solid #3730a3;">
+            <div class="phase-card-top">
+              <span class="phase-pill" style="background: #faf5ff; color: #581c87; border: 1px solid #f3e8ff;">Fase 2</span>
+              <span class="phase-duration">3 Hari (24 Jam)</span>
+            </div>
+            <span class="phase-title">Streaming &amp; Review Workflow</span>
+            <span class="phase-desc">
+              <strong>Hari 3 (8 Jam):</strong> Binary avatar stream &amp; perbaikan header cookie (&lt;1KB).<br>
+              <strong>Hari 4 (8 Jam):</strong> Alur status Kanban review &amp; modal catatan revisi terstruktur.<br>
+              <strong>Hari 5 (8 Jam):</strong> Dialog assignment history &amp; ringkasan akumulasi jam kerja tim.
+            </span>
+          </div>
+
+          <div class="phase-card" style="border-left: 3px solid #065f46;">
+            <div class="phase-card-top">
+              <span class="phase-pill" style="background: #f0fdf4; color: #166534; border: 1px solid #dcfce7;">Fase 3</span>
+              <span class="phase-duration">2 Hari (16 Jam)</span>
+            </div>
+            <span class="phase-title">Dashboard &amp; Pelaporan Eksekutif</span>
+            <span class="phase-desc">
+              <strong>Hari 6 (8 Jam):</strong> Modal konfigurasi modular visibilitas section dashboard per peran.<br>
+              <strong>Hari 7 (8 Jam):</strong> Executive Reporting Suite (ekspor PDF/Excel formal) &amp; sprint sync dialog.
+            </span>
+          </div>
+
+          <div class="phase-card" style="border-left: 3px solid #92400e;">
+            <div class="phase-card-top">
+              <span class="phase-pill" style="background: #fefce8; color: #854d0e; border: 1px solid #fef08a;">Fase 4</span>
+              <span class="phase-duration">1 Hari (8 Jam)</span>
+            </div>
+            <span class="phase-title">Decoupling &amp; Polish Final</span>
+            <span class="phase-desc">
+              <strong>Hari 8 (8 Jam):</strong> Decoupling antrean admin, perataan equal-height grid kartu proyek, collapsible What's New section &amp; audit kelayakan rilis final.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Corporate Footer 3 -->
+      <div class="corp-footer">
+        <span>Dokumen Usulan Teknis &amp; Rekomendasi Arsitektur &bull; Bagian 3.0</span>
+        <span>Diagram Alur Eksekusi &amp; Estimasi Timeline Proyek (Pihak Ketiga: ApexCharts Engine)</span>
+        <span>Halaman 3 dari 3 (Format Melintang)</span>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ApexCharts Playful Interactive Script (Corporate Palette) -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderTimelineChart();
+    });
+
+    function renderTimelineChart() {
+      const chartElement = document.querySelector("#apex-timeline-chart");
+      if (!chartElement) return;
+
+      const options = {
+        series: [
+          {
+            name: "Fase 1: Pondasi & Login",
+            data: [
+              { x: "Hari 1: Skema DB & REST API Master Data", y: [0, 8] },
+              { x: "Hari 2: UI Master Data & Login Produksi", y: [8, 16] }
+            ]
+          },
+          {
+            name: "Fase 2: Streaming & Review Flow",
+            data: [
+              { x: "Hari 3: Binary Avatar Stream & Cookie Fix", y: [16, 24] },
+              { x: "Hari 4: Kanban Review & Form Catatan Revisi", y: [24, 32] },
+              { x: "Hari 5: Histori Delegasi & Log Jam Tim", y: [32, 40] }
+            ]
+          },
+          {
+            name: "Fase 3: Dashboard & Pelaporan",
+            data: [
+              { x: "Hari 6: Modular Role Dashboard Visibility", y: [40, 48] },
+              { x: "Hari 7: Executive Reports PDF/Excel & Sync", y: [48, 56] }
+            ]
+          },
+          {
+            name: "Fase 4: Decoupling & Polish Final",
+            data: [
+              { x: "Hari 8: Decouple Admin, Grid & Audit Rilis", y: [56, 64] }
+            ]
+          }
+        ],
+        chart: {
+          height: 230,
+          type: "rangeBar",
+          fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif",
+          toolbar: { show: false },
+          animations: { enabled: false }
+        },
+        plotOptions: {
+          bar: {
+            horizontal: true,
+            barHeight: "70%",
+            borderRadius: 5,
+            rangeBarGroupRows: true
+          }
+        },
+        colors: ["#1e40af", "#3730a3", "#065f46", "#92400e"],
+        xaxis: {
+          type: "numeric",
+          min: 0,
+          max: 64,
+          tickAmount: 8,
+          labels: {
+            style: {
+              fontSize: "9px",
+              fontWeight: 600,
+              colors: "#475569"
+            },
+            formatter: function(val) {
+              if (val === 0) return "Mulai (0j)";
+              const hari = Math.round(val / 8);
+              return "Hari " + hari + " (" + val + "j)";
+            }
+          },
+          title: {
+            text: "Akumulasi Durasi Waktu Pengerjaan (Estimasi Hari Kerja & Jam Kerja Normal)",
+            style: {
+              fontSize: "9.5px",
+              fontWeight: 700,
+              color: "#334155"
+            }
+          }
+        },
+        yaxis: {
+          labels: {
+            style: {
+              fontSize: "9px",
+              fontWeight: 700,
+              colors: "#0f172a"
+            }
+          }
+        },
+        grid: {
+          borderColor: "#e2e8f0",
+          strokeDashArray: 3,
+          xaxis: { lines: { show: true } },
+          yaxis: { lines: { show: false } }
+        },
+        legend: {
+          position: "top",
+          horizontalAlign: "left",
+          fontSize: "9.5px",
+          fontWeight: 700,
+          markers: {
+            radius: 3,
+            width: 9,
+            height: 9
+          },
+          itemMargin: {
+            horizontal: 10,
+            vertical: 2
+          }
+        },
+        tooltip: {
+          custom: function(opts) {
+            const from = opts.y1;
+            const to = opts.y2;
+            const diff = to - from;
+            const task = opts.w.globals.labels[opts.dataPointIndex];
+            const seriesName = opts.w.globals.seriesNames[opts.seriesIndex];
+            return (
+              '<div style="padding: 7px 11px; font-size: 10.5px; background: #0f172a; color: #ffffff; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">' +
+              '<strong style="color: #93c5fd;">' + seriesName + '</strong><br>' +
+              '<span>' + task + '</span><br>' +
+              '<span style="color: #38bdf8; font-weight: 600;">Alokasi: ' + diff + ' Jam (Jam ke-' + from + ' s/d ' + to + ')</span>' +
+              '</div>'
+            );
+          }
+        }
+      };
+
+      if (window.ApexCharts) {
+        const chart = new ApexCharts(chartElement, options);
+        chart.render();
+      } else {
+        chartElement.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b; font-weight: 600;">Memuat diagram timeline...</div>';
+      }
+    }
+
+    function showSheets(mode) {
+      const p1 = document.getElementById("sheetPage1");
+      const p2 = document.getElementById("sheetPage2");
+      const p3 = document.getElementById("sheetPage3");
+      const btnAll = document.getElementById("btnAll");
+      const btnP1 = document.getElementById("btnPage1");
+      const btnP2 = document.getElementById("btnPage2");
+      const btnP3 = document.getElementById("btnPage3");
+
+      [btnAll, btnP1, btnP2, btnP3].forEach(b => b.classList.remove("active"));
+
+      if (mode === "p1") {
+        p1.style.display = "flex";
+        p2.style.display = "none";
+        p3.style.display = "none";
+        btnP1.classList.add("active");
+      } else if (mode === "p2") {
+        p1.style.display = "none";
+        p2.style.display = "flex";
+        p3.style.display = "none";
+        btnP2.classList.add("active");
+      } else if (mode === "p3") {
+        p1.style.display = "none";
+        p2.style.display = "none";
+        p3.style.display = "flex";
+        btnP3.classList.add("active");
+      } else {
+        p1.style.display = "flex";
+        p2.style.display = "flex";
+        p3.style.display = "flex";
+        btnAll.classList.add("active");
+      }
+    }
+  </script>
+</body>
+</html>

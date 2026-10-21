@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import UserAvatar from "@/components/shared/user-avatar";
 import type { ExecutiveProjectReportData, ExecutiveProjectItem } from "../types";
 
 export interface ExecutiveProjectReportTableProps {
@@ -146,11 +147,9 @@ export default function ExecutiveProjectReportTable({
                         )}
                       </td>
                       <td className="py-md px-md">
-                        <span className="inline-flex items-center gap-1 font-medium text-ink/70">
-                          <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[9px] flex items-center justify-center font-bold">
-                            {proj.lead.charAt(0).toUpperCase()}
-                          </span>
-                          {proj.lead}
+                        <span className="inline-flex items-center gap-1.5 font-medium text-ink/70">
+                          <UserAvatar name={proj.lead} avatar={proj.leadAvatar} size="xs" />
+                          <span>{proj.lead}</span>
                         </span>
                       </td>
                       <td className="py-md px-md">

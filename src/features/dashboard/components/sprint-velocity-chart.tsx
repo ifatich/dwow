@@ -36,8 +36,9 @@ export default function SprintVelocityChart({ data }: SprintVelocityChartProps) 
           </p>
         </div>
         <div className="flex items-center gap-xs">
-          <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-emerald-800 bg-emerald-100 border border-emerald-300 rounded-pill px-sm py-xxs font-[540]">
-            🟢 SPRINT TREND
+          <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-emerald-800 bg-emerald-100 border border-emerald-300 rounded-pill px-sm py-xxs font-[540] flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+            <span>Sprint Trend</span>
           </span>
         </div>
       </div>

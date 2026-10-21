@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import UserAvatar from "@/components/shared/user-avatar";
 
 export interface SprintTask {
   id: string;
@@ -133,7 +134,11 @@ export default function SprintList({ sprints }: SprintListProps) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-sm mb-xxs">
                             <span className="text-[14px] font-[540] text-ink">{proj.name}</span>
-                            <span className="text-[11px] font-[320] text-ink/30">Lead: {proj.lead}</span>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-[320] text-ink/40">
+                              <span className="text-ink/30">Lead:</span>
+                              <UserAvatar name={proj.lead} size="2xs" />
+                              <span>{proj.lead}</span>
+                            </span>
                           </div>
                           <div className="flex items-center gap-md text-[11px] text-ink/35">
                             <span>{proj.totalTasks} task</span>
@@ -163,7 +168,11 @@ export default function SprintList({ sprints }: SprintListProps) {
                                 <span className="text-[13px] font-[480] text-ink/80">{task.title}</span>
                                 {PRIORITY_DOT[task.priority] && <span className="text-[11px]">{PRIORITY_DOT[task.priority]}</span>}
                                 {statusBadge(task.status)}
-                                <span className="text-[11px] text-ink/30 ml-auto">PIC: {task.picName}</span>
+                                <span className="text-[11px] text-ink/40 ml-auto inline-flex items-center gap-1">
+                                  <span className="text-ink/30">PIC:</span>
+                                  <UserAvatar name={task.picName} size="2xs" />
+                                  <span>{task.picName}</span>
+                                </span>
                               </div>
                               {/* Subtasks */}
                               {task.subtasks.length > 0 && (
@@ -180,10 +189,11 @@ export default function SprintList({ sprints }: SprintListProps) {
                                             st.assignees.map((name) => (
                                               <span
                                                 key={name}
-                                                className="inline-flex items-center rounded-pill px-[7px] py-[1px] text-[10px] font-[500] bg-surface-soft text-ink/60 border border-hairline-soft truncate max-w-[80px]"
+                                                className="inline-flex items-center gap-1 rounded-pill pl-1 pr-1.5 py-[1px] text-[10px] font-[500] bg-surface-soft text-ink/60 border border-hairline-soft max-w-[85px]"
                                                 title={name}
                                               >
-                                                {name}
+                                                <UserAvatar name={name} size="2xs" />
+                                                <span className="truncate">{name}</span>
                                               </span>
                                             ))
                                           ) : (
