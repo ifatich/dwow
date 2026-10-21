@@ -12,6 +12,27 @@ export interface ChangelogItem {
 
 export const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    id: "v1-8-3",
+    version: "v1.8.3",
+    date: "21 Okt 2026",
+    title: "Granular Ticket Selection & Visual Diff Comparison on Sprint Sync",
+    summary: "Menghadirkan fitur pemilihan granular tiket yang akan ditambahkan atau diperbarui pada modal Sinkronisasi Sprint Google Sheets, lengkap dengan pratinjau perbandingan perubahan (visual diff) sebelum data disimpan ke database.",
+    changes: [
+      {
+        type: "feature",
+        text: "Granular Ticket Selection: Pengguna kini dapat mencentang atau menghapus centang secara selektif pada task maupun subtask baru dan item yang terupdate, lengkap dengan opsi 'Pilih Semua' dan pencarian instan.",
+      },
+      {
+        type: "feature",
+        text: "Visual Diff Comparison: Kartu pembaruan tiket kini menampilkan perbandingan sebelum vs sesudah (nilai di Database ➔ nilai dari Google Sheets) untuk bobot jam, assignee/personil, status pengerjaan, dan prioritas dengan badge visual yang jelas.",
+      },
+      {
+        type: "improvement",
+        text: "Selective Sync Engine: Endpoint sinkronisasi backend (/api/sprint/sync/execute) hanya memproses dan memperbarui item-item yang secara eksplisit dipilih oleh pengguna, serta mempertahankan item yang tidak dipilih tanpa memodifikasi progres yang ada.",
+      },
+    ],
+  },
+  {
     id: "v1-8-2",
     version: "v1.8.2",
     date: "21 Okt 2026",

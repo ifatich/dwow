@@ -36,12 +36,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const {
+      selectedNewTaskKeys,
+      selectedNewSubtaskKeys,
+      selectedUpdatedTaskIds,
+      selectedUpdatedSubtaskIds,
+    } = body;
+
     const performedBy = `${user?.name || user?.username || "Lead"} (${userRole || "lead"})`;
 
     const result = await executeSprintSync({
       sprintIdentifier,
       customUrl,
       performedBy,
+      selectedNewTaskKeys,
+      selectedNewSubtaskKeys,
+      selectedUpdatedTaskIds,
+      selectedUpdatedSubtaskIds,
     });
 
     // Update settings lastSyncAt

@@ -1,4 +1,12 @@
+export interface FieldDiff {
+  field: string;
+  label: string;
+  oldValue: string | number;
+  newValue: string | number;
+}
+
 export interface AddedItemTask {
+  key?: string;
   id?: string;
   ticketId?: string;
   title: string;
@@ -7,12 +15,39 @@ export interface AddedItemTask {
 }
 
 export interface AddedItemSubtask {
+  key?: string;
   id?: string;
   title: string;
   taskTitle: string;
   categoryName: string;
   workloadHours: number;
   assignees: string[];
+}
+
+export interface UpdatedItemTask {
+  id: string;
+  ticketId?: string;
+  title: string;
+  categoryName: string;
+  diffs: FieldDiff[];
+  currentPic: string;
+  newPic: string;
+  currentPriority: string;
+  newPriority: string;
+}
+
+export interface UpdatedItemSubtask {
+  id: string;
+  title: string;
+  taskTitle: string;
+  categoryName: string;
+  diffs: FieldDiff[];
+  currentWorkload: number;
+  newWorkload: number;
+  currentAssignees: string[];
+  newAssignees: string[];
+  currentStatus: string;
+  newStatus?: string;
 }
 
 export interface AvailableSprint {
@@ -52,6 +87,10 @@ export interface SprintSyncPreview {
     newTasks: AddedItemTask[];
     newSubtasks: AddedItemSubtask[];
   };
+  detectedUpdatedItems?: {
+    updatedTasks: UpdatedItemTask[];
+    updatedSubtasks: UpdatedItemSubtask[];
+  };
   warnings?: string[];
 }
 
@@ -72,4 +111,9 @@ export interface SprintSyncResult {
     newTasks: AddedItemTask[];
     newSubtasks: AddedItemSubtask[];
   };
+  updatedItems?: {
+    updatedTasks: UpdatedItemTask[];
+    updatedSubtasks: UpdatedItemSubtask[];
+  };
+  skippedItemsCount?: number;
 }
